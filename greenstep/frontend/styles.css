@@ -278,6 +278,14 @@ header{
   margin-bottom:14px;
 }
 
+.admin-form-grid-articles{
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+}
+
+.user-submit-grid{
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+}
+
 .field{display:block}
 label{
   display:block;
@@ -607,6 +615,37 @@ th{
 .sidebar-card + .sidebar-card{margin-top:16px}
 .sidebar-card-soft{
   background:linear-gradient(180deg, #f4f8f2, #ffffff);
+}
+
+.admin-shell-header{
+  position:relative;
+  overflow:hidden;
+}
+
+.admin-shell-header::after{
+  content:"";
+  position:absolute;
+  right:-48px;
+  bottom:-88px;
+  width:250px;
+  height:250px;
+  border-radius:36px;
+  background:linear-gradient(135deg, rgba(255,255,255,.14), rgba(255,255,255,.02));
+  transform:rotate(24deg);
+}
+
+.user-shell-header{
+  background:linear-gradient(135deg, #143428 0%, #24563f 54%, #6cb77c 100%);
+}
+
+.user-dashboard-grid{
+  grid-template-columns:minmax(0, 1.55fr) minmax(300px, .75fr);
+}
+
+.user-hero{
+  background:
+    radial-gradient(circle at top right, rgba(103, 182, 117, .22), transparent 28%),
+    linear-gradient(180deg, rgba(255,255,255,.95), rgba(242,248,242,.98));
 }
 
 .compact-list .list-item{padding:13px 14px}

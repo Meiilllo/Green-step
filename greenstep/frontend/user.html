@@ -1,206 +1,143 @@
-<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Green Step — Кабинет пользователя</title><link rel="stylesheet" href="styles.css"></head><body onload="bootUser()">
-<header><div class="topbar"><div><h1>Green Step — Кабинет пользователя</h1><p>Пользователь входит именно в свой профиль. Челленджи берутся только из активных, которые создал админ.</p></div><div class="actions"><button class="btn secondary" onclick="logout()">Выйти</button></div></div></header>
-<main class="container">
-<section class="hero"><div class="stats"><div class="stat"><div class="label">Мой логин</div><div class="value" id="userLabel">—</div></div><div class="stat"><div class="label">Активных челленджей</div><div class="value" id="challengesCount">0</div></div><div class="stat"><div class="label">Моих заявок</div><div class="value" id="mySubsCount">0</div></div><div class="stat"><div class="label">На проверке</div><div class="value" id="pendingCount">0</div></div><div class="stat"><div class="label">Подтверждено</div><div class="value" id="approvedCount">0</div></div></div></section>
-
-<div class="layout">
-<section class="card">
-  <div class="tabs">
-    <button class="tab-btn active" data-tab="profile">Профиль</button>
-    <button class="tab-btn" data-tab="submit">Челленджи</button>
-    <button class="tab-btn" data-tab="history">История</button>
-  </div>
-
-  <div class="tab active" id="profile">
-    <h2>Мой профиль</h2>
-    <div class="grid3">
-      <div><label>Логин</label><input id="username"></div>
-      <div><label>Email</label><input id="email"></div>
-      <div><label>Возраст</label><input id="age"></div>
-    </div>
-    <div class="grid3">
-      <div><label>Город</label><input id="city"></div>
-      <div><label>Транспорт</label><input id="transport"></div>
-      <div><label>Питание</label><input id="diet"></div>
-    </div>
-    <div class="grid2">
-      <div><label>Цель</label><textarea id="goal"></textarea></div>
-      <div><label>О себе</label><textarea id="bio"></textarea></div>
-    </div>
-    <div><label>Сортировка отходов</label><textarea id="recycling"></textarea></div>
-    <div class="grid2">
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Green Step - Кабинет пользователя</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body onload="bootUser()">
+  <header class="admin-shell-header user-shell-header">
+    <div class="admin-shell-header__inner">
       <div>
-        <label>Новый пароль</label>
-        <input id="newPassword" type="password" placeholder="Оставь пустым, если не меняешь">
+        <div class="eyebrow">User Dashboard</div>
+        <h1>Личный кабинет Green Step</h1>
+        <p class="admin-shell-header__lead">Следи за активными челленджами, обновляй профиль и отправляй подтверждения из аккуратного единого кабинета.</p>
       </div>
-      <div class="notice">Редактируется только твой аккаунт. После сохранения останешься в своём профиле.</div>
+      <div class="actions">
+        <button class="btn secondary" onclick="logout()">Выйти</button>
+      </div>
     </div>
-    <div class="actions"><button class="btn blue" id="saveProfileBtn">Сохранить профиль</button></div>
-  </div>
+  </header>
 
-  <div class="tab" id="submit">
-    <h2>Выбор челленджа</h2>
-    <div class="sub">Отображаются только активные челленджи из админки.</div>
-    <div class="grid2">
-      <div><label>Челлендж</label><select id="challengeSelect"></select></div>
-      <div><label>Мой логин</label><input id="submitUsername" readonly></div>
+  <main class="admin-shell">
+    <section class="hero hero-admin user-hero">
+      <div class="hero-admin__content">
+        <div>
+          <div class="eyebrow">Progress Snapshot</div>
+          <h2>Вся твоя активность и история результатов собраны в одном месте.</h2>
+          <p class="sub">Сверху всегда видно, сколько задач доступно, что находится на проверке и сколько заявок уже подтверждено.</p>
+        </div>
+        <div class="hero-admin__pulse"><span class="hero-admin__pulse-dot"></span><span>Кабинет активен</span></div>
+      </div>
+      <div class="stats stats-admin">
+        <div class="stat stat-accent"><div class="label">Мой логин</div><div class="value" id="userLabel">—</div><div class="small">Текущий профиль</div></div>
+        <div class="stat"><div class="label">Активных челленджей</div><div class="value" id="challengesCount">0</div><div class="small">Можно выполнить сейчас</div></div>
+        <div class="stat"><div class="label">Моих заявок</div><div class="value" id="mySubsCount">0</div><div class="small">Всего отправлено</div></div>
+        <div class="stat"><div class="label">На проверке</div><div class="value" id="pendingCount">0</div><div class="small">Ожидают решения</div></div>
+        <div class="stat stat-money"><div class="label">Подтверждено</div><div class="value" id="approvedCount">0</div><div class="small">Одобрено или выплачено</div></div>
+      </div>
+    </section>
+
+    <div class="admin-grid user-dashboard-grid">
+      <section class="card">
+        <div class="tabs tabs-admin">
+          <button class="tab-btn active" data-tab="profile">Профиль</button>
+          <button class="tab-btn" data-tab="submit">Челленджи</button>
+          <button class="tab-btn" data-tab="history">История</button>
+        </div>
+
+        <div class="tab active" id="profile">
+          <div class="section-heading">
+            <div><div class="eyebrow">Profile</div><h2>Мой профиль</h2></div>
+            <div class="notice">Обновляй данные о себе и меняй пароль прямо из кабинета без отдельного экрана настроек.</div>
+          </div>
+          <div class="admin-form-grid">
+            <div class="field"><label for="username">Логин</label><input id="username"></div>
+            <div class="field"><label for="email">Email</label><input id="email"></div>
+            <div class="field"><label for="age">Возраст</label><input id="age"></div>
+            <div class="field"><label for="city">Город</label><input id="city"></div>
+            <div class="field"><label for="transport">Транспорт</label><input id="transport"></div>
+            <div class="field"><label for="diet">Питание</label><input id="diet"></div>
+          </div>
+          <div class="grid2">
+            <div><label for="goal">Цель</label><textarea id="goal"></textarea></div>
+            <div><label for="bio">О себе</label><textarea id="bio"></textarea></div>
+          </div>
+          <label for="recycling">Сортировка отходов</label>
+          <textarea id="recycling"></textarea>
+          <div class="grid2">
+            <div><label for="newPassword">Новый пароль</label><input id="newPassword" type="password" placeholder="Оставь пустым, если не меняешь"></div>
+            <div class="notice">После сохранения профиль останется активным, а новый пароль начнет работать сразу.</div>
+          </div>
+          <div class="actions"><button class="btn blue" id="saveProfileBtn">Сохранить профиль</button></div>
+        </div>
+
+        <div class="tab" id="submit">
+          <div class="section-heading">
+            <div><div class="eyebrow">Challenges</div><h2>Выбор челленджа и отправка результата</h2></div>
+            <div class="notice">Здесь ты выбираешь задачу, прикладываешь фото и сразу отправляешь заявку на проверку.</div>
+          </div>
+          <div class="admin-form-grid user-submit-grid">
+            <div class="field"><label for="challengeSelect">Челлендж</label><select id="challengeSelect"></select></div>
+            <div class="field"><label for="submitUsername">Мой логин</label><input id="submitUsername" readonly></div>
+          </div>
+          <div id="selectedChallengeInfo" class="list"></div>
+          <label for="comment">Комментарий</label>
+          <textarea id="comment" placeholder="Опиши, что именно ты сделал и на что обратить внимание"></textarea>
+          <div class="upload-box">
+            <label for="photoInput">Фото</label>
+            <input id="photoInput" type="file" accept="image/*">
+            <div id="previewWrap" class="preview-grid"></div>
+          </div>
+          <div class="actions"><button class="btn" id="submitBtn">Отправить заявку</button></div>
+        </div>
+
+        <div class="tab" id="history">
+          <div class="section-heading">
+            <div><div class="eyebrow">History</div><h2>История моих заявок</h2></div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Дата</th><th>Челлендж</th><th>Статус</th><th>Награда</th><th>Комментарий</th></tr></thead>
+              <tbody id="historyBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <aside>
+        <section class="card sidebar-card">
+          <div class="section-heading section-heading-tight"><div><div class="eyebrow">Guide</div><h2>Как пользоваться кабинетом</h2></div></div>
+          <div class="list compact-list">
+            <div class="list-item">Заполни профиль, чтобы цели и привычки были понятны в рамках программы.</div>
+            <div class="list-item">Выбирай активные челленджи и сразу прикладывай фото, чтобы не терять контекст выполнения.</div>
+            <div class="list-item">Следи за историей заявок: там появляются статусы и комментарии администратора.</div>
+          </div>
+        </section>
+        <section class="card sidebar-card sidebar-card-soft">
+          <div class="section-heading section-heading-tight"><div><div class="eyebrow">Statuses</div><h3>Что означают статусы</h3></div></div>
+          <div class="list compact-list">
+            <div class="list-item"><span class="status pending">На проверке</span><div class="small" style="margin-top:8px">Заявка отправлена и ждет решения администратора.</div></div>
+            <div class="list-item"><span class="status approved">Подтверждено</span><div class="small" style="margin-top:8px">Результат принят, награда закреплена.</div></div>
+            <div class="list-item"><span class="status paid">Выплачено</span><div class="small" style="margin-top:8px">Подтвержденная заявка переведена в выплаченный статус.</div></div>
+          </div>
+        </section>
+      </aside>
     </div>
-    <div id="selectedChallengeInfo" class="list" style="margin-top:12px"></div>
-    <label>Комментарий</label>
-    <textarea id="comment"></textarea>
-    <div class="upload-box">
-      <label>Фото</label>
-      <input id="photoInput" type="file" accept="image/*">
-      <div id="previewWrap" class="preview-grid"></div>
-    </div>
-    <div class="actions"><button class="btn" id="submitBtn">Отправить заявку</button></div>
-  </div>
+  </main>
 
-  <div class="tab" id="history">
-    <h2>История моих заявок</h2>
-    <div class="table-wrap"><table><thead><tr><th>Дата</th><th>Челлендж</th><th>Статус</th><th>Награда</th><th>Комментарий</th></tr></thead><tbody id="historyBody"></tbody></table></div>
-  </div>
-</section>
-
-<aside class="card">
-  <h2>Сводка</h2>
-  <div class="list">
-    <div class="list-item">После входа ты попадаешь именно в свой кабинет.</div>
-    <div class="list-item">Если такого логина/пароля нет — система пишет «Пользователь не найден».</div>
-    <div class="list-item">Если админ отключит челлендж — он пропадёт из списка.</div>
-  </div>
-</aside>
-</div>
-</main>
-
-<script src="app.js"></script>
-<script>
-let currentUser = null;
-let activeChallenges = [];
-
-function switchTab(id){
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===id));
-  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.id===id));
-}
-
-async function loadProfile(){
-  const sessionUser = getCurrentUser();
-  if (!sessionUser || !getAuthToken()) return location.href = "index.html";
-  if (sessionUser.role !== "user") return location.href = "admin.html";
-
-  const user = await api("/api/me");
-  currentUser = user;
-  updateCurrentUser(user);
-
-  userLabel.textContent = user.username || "—";
-  submitUsername.value = user.username || "";
-  username.value = user.username || "";
-  email.value = user.email || "";
-  age.value = user.age || "";
-  city.value = user.city || "";
-  goal.value = user.goal || "";
-  bio.value = user.bio || "";
-  transport.value = user.transport || "";
-  diet.value = user.diet || "";
-  recycling.value = user.recycling || "";
-}
-
-async function saveProfile(){
-  if (!currentUser) return;
-  const updated = await api("/api/users/" + currentUser.id, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      username: username.value.trim(),
-      email: email.value.trim(),
-      age: age.value.trim(),
-      city: city.value.trim(),
-      goal: goal.value.trim(),
-      bio: bio.value.trim(),
-      transport: transport.value.trim(),
-      diet: diet.value.trim(),
-      recycling: recycling.value.trim(),
-      password: newPassword.value.trim()
-    })
-  });
-  currentUser = updated.user;
-  if (updated.token) {
-    setSession(updated);
-  } else {
-    updateCurrentUser(updated.user);
-  }
-  newPassword.value = "";
-  await loadProfile();
-  alert("Профиль сохранён");
-}
-
-async function loadChallenges(){
-  activeChallenges = await api("/api/challenges?active=1");
-  challengesCount.textContent = activeChallenges.length;
-  challengeSelect.innerHTML = activeChallenges.length ? activeChallenges.map(c=>`<option value="${c.id}">${esc(c.title)} — ${money(c.reward)}</option>`).join('') : '<option value="">Нет активных челленджей</option>';
-  renderSelectedChallengeInfo();
-}
-
-function renderSelectedChallengeInfo(){
-  const id = challengeSelect.value;
-  const c = activeChallenges.find(x => x.id === id);
-  selectedChallengeInfo.innerHTML = c ? `
-    <div class="list-item"><strong>${esc(c.title)}</strong></div>
-    <div class="list-item">Категория: ${esc(c.category || 'Общее')}</div>
-    <div class="list-item">Сложность: ${esc(c.difficulty || 'Средний')}</div>
-    <div class="list-item">Награда: ${money(c.reward)}</div>
-    <div class="list-item">${esc(c.description || '')}</div>
-  ` : '<div class="list-item">Нет доступных челленджей</div>';
-}
-
-async function loadMySubmissions(){
-  if (!currentUser) return;
-  const list = await api("/api/submissions");
-  mySubsCount.textContent = list.length;
-  pendingCount.textContent = list.filter(x => x.status === "pending").length;
-  approvedCount.textContent = list.filter(x => x.status === "approved" || x.status === "paid").length;
-  historyBody.innerHTML = list.length ? list.map(s=>`<tr><td>${fmtDate(s.createdAt)}</td><td>${esc(s.challengeTitle)}</td><td><span class="status ${statusClass(s.status)}">${statusLabel(s.status)}</span></td><td>${s.status==='approved'||s.status==='paid'?money(s.reward):'—'}</td><td>${esc(s.comment || '—')}${s.adminComment?`<div class="small">${esc(s.adminComment)}</div>`:''}</td></tr>`).join('') : '<tr><td colspan="5" class="small" style="padding:16px">Заявок нет.</td></tr>';
-}
-
-async function submitChallenge(){
-  if (!currentUser) return;
-  const file = photoInput.files[0];
-  if (!file) return alert("Прикрепи фото");
-  const form = new FormData();
-  form.append("challengeId", challengeSelect.value);
-  form.append("comment", comment.value.trim());
-  form.append("photo", file);
-
-  const headers = {};
-  const token = getAuthToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(API_BASE + "/api/submissions", { method:"POST", body: form, headers });
-  const text = await res.text();
-  const data = text ? JSON.parse(text) : {};
-  if (!res.ok) return alert(data.error || "Ошибка");
-
-  comment.value = "";
-  photoInput.value = "";
-  previewWrap.innerHTML = "";
-  await loadMySubmissions();
-  switchTab("history");
-  alert("Заявка отправлена");
-}
-
-async function bootUser(){
-  document.querySelectorAll('.tab-btn').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
-  saveProfileBtn.onclick = ()=>saveProfile().catch(e=>alert(e.message));
-  submitBtn.onclick = ()=>submitChallenge().catch(e=>alert(e.message));
-  challengeSelect.onchange = renderSelectedChallengeInfo;
-  photoInput.onchange = e => {
-    const f = e.target.files[0];
-    if (!f) return;
-    const r = new FileReader();
-    r.onload = ()=> previewWrap.innerHTML = `<div class="preview-card"><img src="${r.result}"><div class="cap">${esc(f.name)}</div></div>`;
-    r.readAsDataURL(f);
-  };
-  await loadProfile();
-  await loadChallenges();
-  await loadMySubmissions();
-}
-</script></body></html>
+  <script src="app.js"></script>
+  <script>
+    let currentUser=null;let activeChallenges=[];
+    function switchTab(id){document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===id));document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.id===id));}
+    async function loadProfile(){const sessionUser=getCurrentUser();if(!sessionUser||!getAuthToken()) return location.href="/auth";if(sessionUser.role!=="user") return location.href="/admin";const user=await api("/api/me");currentUser=user;updateCurrentUser(user);userLabel.textContent=user.username||"—";submitUsername.value=user.username||"";username.value=user.username||"";email.value=user.email||"";age.value=user.age||"";city.value=user.city||"";goal.value=user.goal||"";bio.value=user.bio||"";transport.value=user.transport||"";diet.value=user.diet||"";recycling.value=user.recycling||"";}
+    async function saveProfile(){if(!currentUser) return;const updated=await api("/api/users/"+currentUser.id,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:username.value.trim(),email:email.value.trim(),age:age.value.trim(),city:city.value.trim(),goal:goal.value.trim(),bio:bio.value.trim(),transport:transport.value.trim(),diet:diet.value.trim(),recycling:recycling.value.trim(),password:newPassword.value.trim()})});currentUser=updated.user;if(updated.token){setSession(updated);}else{updateCurrentUser(updated.user);}newPassword.value="";await loadProfile();alert("Профиль сохранён");}
+    async function loadChallenges(){activeChallenges=await api("/api/challenges?active=1");challengesCount.textContent=activeChallenges.length;challengeSelect.innerHTML=activeChallenges.length?activeChallenges.map(c=>`<option value="${c.id}">${esc(c.title)} — ${money(c.reward)}</option>`).join(''):'<option value="">Нет активных челленджей</option>';renderSelectedChallengeInfo();}
+    function renderSelectedChallengeInfo(){const id=challengeSelect.value;const c=activeChallenges.find(x=>x.id===id);selectedChallengeInfo.innerHTML=c?`<div class="list-item"><strong>${esc(c.title)}</strong></div><div class="list-item">Категория: ${esc(c.category||'Общее')}</div><div class="list-item">Сложность: ${esc(c.difficulty||'Средний')}</div><div class="list-item">Награда: ${money(c.reward)}</div><div class="list-item">${esc(c.description||'')}</div>`:'<div class="list-item">Нет доступных челленджей</div>';}
+    async function loadMySubmissions(){if(!currentUser) return;const list=await api("/api/submissions");mySubsCount.textContent=list.length;pendingCount.textContent=list.filter(x=>x.status==="pending").length;approvedCount.textContent=list.filter(x=>x.status==="approved"||x.status==="paid").length;historyBody.innerHTML=list.length?list.map(s=>`<tr><td>${fmtDate(s.createdAt)}</td><td>${esc(s.challengeTitle)}</td><td><span class="status ${statusClass(s.status)}">${statusLabel(s.status)}</span></td><td>${s.status==='approved'||s.status==='paid'?money(s.reward):'—'}</td><td>${esc(s.comment||'—')}${s.adminComment?`<div class="small">${esc(s.adminComment)}</div>`:''}</td></tr>`).join(''):'<tr><td colspan="5" class="small table-empty">Заявок нет.</td></tr>';}
+    async function submitChallenge(){if(!currentUser) return;const file=photoInput.files[0];if(!file) return alert("Прикрепи фото");const form=new FormData();form.append("challengeId",challengeSelect.value);form.append("comment",comment.value.trim());form.append("photo",file);const headers={};const token=getAuthToken();if(token) headers.Authorization=`Bearer ${token}`;const res=await fetch(API_BASE+"/api/submissions",{method:"POST",body:form,headers});const text=await res.text();const data=text?JSON.parse(text):{};if(!res.ok) return alert(data.error||"Ошибка");comment.value="";photoInput.value="";previewWrap.innerHTML="";await loadMySubmissions();switchTab("history");alert("Заявка отправлена");}
+    async function bootUser(){document.querySelectorAll('.tab-btn').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));saveProfileBtn.onclick=()=>saveProfile().catch(e=>alert(e.message));submitBtn.onclick=()=>submitChallenge().catch(e=>alert(e.message));challengeSelect.onchange=renderSelectedChallengeInfo;photoInput.onchange=e=>{const f=e.target.files[0];if(!f) return;const r=new FileReader();r.onload=()=>previewWrap.innerHTML=`<div class="preview-card preview-card-admin"><img src="${r.result}"><div class="cap">${esc(f.name)}</div></div>`;r.readAsDataURL(f);};await loadProfile();await loadChallenges();await loadMySubmissions();}
+  </script>
+</body>
+</html>
