@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import express from "express";
 import cors from "cors";
 import multer from "multer";
@@ -14,15 +15,34 @@ const NODE_ENV = process.env.NODE_ENV || "development";
 const FRONTEND_DIR = path.resolve(__dirname, "../frontend");
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "";
 const STORAGE_ROOT = path.resolve(process.env.STORAGE_DIR || path.join(__dirname, "storage"));
+const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+const AUTH_WINDOW_MS = 1000 * 60 * 15;
+const AUTH_MAX_ATTEMPTS = 10;
+const BODY_LIMIT = process.env.BODY_LIMIT || "200kb";
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+const authRateLimit = new Map();
 
 const corsOptions = CORS_ORIGIN
-  ? {
-      origin: CORS_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean)
-    }
+  ? { origin: CORS_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean) }
   : true;
 
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+  );
+  next();
+});
+app.use(express.json({ limit: BODY_LIMIT }));
 
 const uploadsDir = path.join(STORAGE_ROOT, "uploads");
 const dbPath = path.join(STORAGE_ROOT, "db.json");
@@ -33,12 +53,48 @@ fs.mkdirSync(uploadsDir, { recursive: true });
 app.use("/uploads", express.static(uploadsDir));
 app.use(express.static(FRONTEND_DIR));
 
+const hashPassword = (password, salt = crypto.randomBytes(16).toString("hex")) => {
+  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${hash}`;
+};
+
+const verifyPassword = (password, passwordHash) => {
+  if (!passwordHash || !passwordHash.includes(":")) return false;
+  const [salt, storedHash] = passwordHash.split(":");
+  const computedHash = crypto.scryptSync(password, salt, 64).toString("hex");
+  return crypto.timingSafeEqual(Buffer.from(storedHash, "hex"), Buffer.from(computedHash, "hex"));
+};
+
+const hashToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
+const createSessionToken = () => crypto.randomBytes(32).toString("hex");
+const makeId = (prefix) => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+const sanitizeUser = (u) => ({
+  id: u.id,
+  username: u.username,
+  role: u.role,
+  email: u.email || "",
+  city: u.city || "",
+  age: u.age || "",
+  goal: u.goal || "",
+  bio: u.bio || "",
+  transport: u.transport || "",
+  diet: u.diet || "",
+  recycling: u.recycling || "",
+  createdAt: u.createdAt || ""
+});
+
+const normalizeChallenge = (challenge) => ({
+  ...challenge,
+  assignedUserIds: Array.isArray(challenge.assignedUserIds) ? challenge.assignedUserIds : []
+});
+
 const seed = {
   users: [
     {
       id: "admin_1",
       username: "admin",
-      password: "admin",
+      passwordHash: hashPassword("admin"),
       role: "admin",
       email: "admin@greenstep.local",
       city: "Москва",
@@ -53,7 +109,7 @@ const seed = {
     {
       id: "user_demo_1",
       username: "Алина",
-      password: "123456",
+      passwordHash: hashPassword("123456"),
       role: "user",
       email: "alina@example.com",
       city: "Москва",
@@ -91,7 +147,8 @@ const seed = {
     }
   ],
   submissions: [],
-  payouts: []
+  payouts: [],
+  sessions: []
 };
 
 if (!fs.existsSync(dbPath)) {
@@ -100,27 +157,40 @@ if (!fs.existsSync(dbPath)) {
 
 const readDb = () => JSON.parse(fs.readFileSync(dbPath, "utf-8"));
 const writeDb = (db) => fs.writeFileSync(dbPath, JSON.stringify(db, null, 2), "utf-8");
-const makeId = (prefix) => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-const sanitizeUser = (u) => ({
-  id: u.id,
-  username: u.username,
-  role: u.role,
-  email: u.email || "",
-  city: u.city || "",
-  age: u.age || "",
-  goal: u.goal || "",
-  bio: u.bio || "",
-  transport: u.transport || "",
-  diet: u.diet || "",
-  recycling: u.recycling || "",
-  createdAt: u.createdAt || ""
-});
+const migrateDb = () => {
+  const db = readDb();
+  let changed = false;
 
-const normalizeChallenge = (challenge) => ({
-  ...challenge,
-  assignedUserIds: Array.isArray(challenge.assignedUserIds) ? challenge.assignedUserIds : []
-});
+  if (!Array.isArray(db.sessions)) {
+    db.sessions = [];
+    changed = true;
+  }
+
+  for (const user of db.users) {
+    if (!user.passwordHash && user.password) {
+      user.passwordHash = hashPassword(String(user.password));
+      delete user.password;
+      changed = true;
+    }
+  }
+
+  for (const challenge of db.challenges) {
+    if (!Array.isArray(challenge.assignedUserIds)) {
+      challenge.assignedUserIds = [];
+      changed = true;
+    }
+  }
+
+  db.sessions = db.sessions.filter((session) => {
+    const createdAt = Date.parse(session.createdAt || "");
+    return Number.isFinite(createdAt) && Date.now() - createdAt < SESSION_TTL_MS;
+  });
+
+  if (changed) writeDb(db);
+};
+
+migrateDb();
 
 const storage = multer.diskStorage({
   destination: (_, __, cb) => cb(null, uploadsDir),
@@ -130,30 +200,147 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: { fileSize: MAX_UPLOAD_BYTES },
+  fileFilter: (_, file, cb) => {
+    if (!ALLOWED_IMAGE_MIME_TYPES.has(file.mimetype)) {
+      return cb(new Error("Можно загружать только JPG, PNG или WEBP"));
+    }
+    cb(null, true);
+  }
+});
+
+const cleanupRateLimit = () => {
+  const now = Date.now();
+  for (const [key, entry] of authRateLimit.entries()) {
+    if (now - entry.firstAttemptAt > AUTH_WINDOW_MS) {
+      authRateLimit.delete(key);
+    }
+  }
+};
+
+const getClientIp = (req) => {
+  const forwarded = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim();
+  return forwarded || req.ip || "unknown";
+};
+
+const checkAuthRateLimit = (req, res, next) => {
+  cleanupRateLimit();
+  const key = `${getClientIp(req)}:${req.path}`;
+  const entry = authRateLimit.get(key);
+  if (entry && entry.count >= AUTH_MAX_ATTEMPTS && Date.now() - entry.firstAttemptAt <= AUTH_WINDOW_MS) {
+    return res.status(429).json({ error: "Слишком много попыток. Попробуй позже." });
+  }
+  req.authRateLimitKey = key;
+  next();
+};
+
+const registerFailedAuthAttempt = (req) => {
+  const key = req.authRateLimitKey;
+  if (!key) return;
+  const now = Date.now();
+  const entry = authRateLimit.get(key);
+  if (!entry || now - entry.firstAttemptAt > AUTH_WINDOW_MS) {
+    authRateLimit.set(key, { count: 1, firstAttemptAt: now });
+    return;
+  }
+  entry.count += 1;
+};
+
+const clearFailedAuthAttempts = (req) => {
+  if (req.authRateLimitKey) authRateLimit.delete(req.authRateLimitKey);
+};
+
+const isValidUsername = (username) => /^[\p{L}\p{N}_.-]{3,32}$/u.test(username);
+
+const getBearerToken = (req) => {
+  const header = req.headers.authorization || "";
+  if (!header.startsWith("Bearer ")) return null;
+  return header.slice(7).trim();
+};
+
+const requireAuth = (req, res, next) => {
+  const token = getBearerToken(req);
+  if (!token) return res.status(401).json({ error: "Требуется вход" });
+
+  const db = readDb();
+  const session = db.sessions.find((item) => item.tokenHash === hashToken(token));
+  if (!session) return res.status(401).json({ error: "Сессия недействительна" });
+
+  const createdAt = Date.parse(session.createdAt || "");
+  if (!Number.isFinite(createdAt) || Date.now() - createdAt >= SESSION_TTL_MS) {
+    db.sessions = db.sessions.filter((item) => item.id !== session.id);
+    writeDb(db);
+    return res.status(401).json({ error: "Сессия истекла" });
+  }
+
+  const user = db.users.find((item) => item.id === session.userId);
+  if (!user) {
+    db.sessions = db.sessions.filter((item) => item.id !== session.id);
+    writeDb(db);
+    return res.status(401).json({ error: "Пользователь не найден" });
+  }
+
+  req.auth = { user, session };
+  req.db = db;
+  next();
+};
+
+const requireAdmin = (req, res, next) => {
+  if (req.auth.user.role !== "admin") {
+    return res.status(403).json({ error: "Недостаточно прав" });
+  }
+  next();
+};
+
+const createSessionPayload = (db, user) => {
+  db.sessions = db.sessions.filter((session) => session.userId !== user.id);
+  const token = createSessionToken();
+  db.sessions.unshift({
+    id: makeId("session"),
+    userId: user.id,
+    tokenHash: hashToken(token),
+    createdAt: new Date().toISOString()
+  });
+  writeDb(db);
+  return { token, user: sanitizeUser(user) };
+};
 
 app.get("/api/health", (_, res) => {
   res.json({ ok: true, env: NODE_ENV });
 });
 
-app.post("/api/register", (req, res) => {
+app.post("/api/register", checkAuthRateLimit, (req, res) => {
   const db = readDb();
   const username = String(req.body.username || "").trim();
   const password = String(req.body.password || "").trim();
 
   if (!username || !password) {
+    registerFailedAuthAttempt(req);
     return res.status(400).json({ error: "Заполни логин и пароль" });
+  }
+
+  if (!isValidUsername(username)) {
+    registerFailedAuthAttempt(req);
+    return res.status(400).json({ error: "Логин должен быть длиной 3-32 символа и содержать только буквы, цифры, _, . или -" });
+  }
+
+  if (password.length < 6) {
+    registerFailedAuthAttempt(req);
+    return res.status(400).json({ error: "Пароль должен быть не короче 6 символов" });
   }
 
   const exists = db.users.find((u) => u.username.toLowerCase() === username.toLowerCase());
   if (exists) {
+    registerFailedAuthAttempt(req);
     return res.status(409).json({ error: "Пользователь уже существует" });
   }
 
   const user = {
     id: makeId("user"),
     username,
-    password,
+    passwordHash: hashPassword(password),
     role: "user",
     email: String(req.body.email || "").trim(),
     city: String(req.body.city || "").trim(),
@@ -167,65 +354,103 @@ app.post("/api/register", (req, res) => {
   };
 
   db.users.push(user);
-  writeDb(db);
-  res.status(201).json(sanitizeUser(user));
+  const payload = createSessionPayload(db, user);
+  clearFailedAuthAttempts(req);
+  res.status(201).json(payload);
 });
 
-app.post("/api/login", (req, res) => {
+app.post("/api/login", checkAuthRateLimit, (req, res) => {
   const db = readDb();
   const username = String(req.body.username || "").trim();
   const password = String(req.body.password || "").trim();
-  const user = db.users.find((u) => u.username === username && u.password === password);
+  const user = db.users.find((u) => u.username.toLowerCase() === username.toLowerCase());
 
-  if (!user) {
-    return res.status(404).json({ error: "Пользователь не найден" });
+  if (!user || !verifyPassword(password, user.passwordHash)) {
+    registerFailedAuthAttempt(req);
+    return res.status(401).json({ error: "Неверный логин или пароль" });
   }
 
-  res.json(sanitizeUser(user));
+  clearFailedAuthAttempts(req);
+  res.json(createSessionPayload(db, user));
 });
 
-app.get("/api/users", (_, res) => {
+app.post("/api/logout", requireAuth, (req, res) => {
+  req.db.sessions = req.db.sessions.filter((session) => session.id !== req.auth.session.id);
+  writeDb(req.db);
+  res.json({ ok: true });
+});
+
+app.get("/api/me", requireAuth, (req, res) => {
+  res.json(sanitizeUser(req.auth.user));
+});
+
+app.get("/api/users", requireAuth, requireAdmin, (_, res) => {
   const db = readDb();
   res.json(db.users.map(sanitizeUser));
 });
 
-app.get("/api/users/:id", (req, res) => {
-  const user = readDb().users.find((u) => u.id === req.params.id);
-  if (!user) {
-    return res.status(404).json({ error: "Пользователь не найден" });
+app.get("/api/users/:id", requireAuth, (req, res) => {
+  if (req.auth.user.role !== "admin" && req.auth.user.id !== req.params.id) {
+    return res.status(403).json({ error: "Недостаточно прав" });
   }
+
+  const user = req.db.users.find((item) => item.id === req.params.id);
+  if (!user) return res.status(404).json({ error: "Пользователь не найден" });
   res.json(sanitizeUser(user));
 });
 
-app.put("/api/users/:id", (req, res) => {
-  const db = readDb();
-  const user = db.users.find((u) => u.id === req.params.id);
-
-  if (!user) {
-    return res.status(404).json({ error: "Пользователь не найден" });
+app.put("/api/users/:id", requireAuth, (req, res) => {
+  if (req.auth.user.role !== "admin" && req.auth.user.id !== req.params.id) {
+    return res.status(403).json({ error: "Недостаточно прав" });
   }
+
+  const user = req.db.users.find((item) => item.id === req.params.id);
+  if (!user) return res.status(404).json({ error: "Пользователь не найден" });
 
   ["username", "email", "city", "age", "goal", "bio", "transport", "diet", "recycling"].forEach((field) => {
     if (field in req.body) user[field] = String(req.body[field] ?? "").trim();
   });
 
-  if ("password" in req.body && String(req.body.password || "").trim()) {
-    user.password = String(req.body.password).trim();
+  if (!isValidUsername(user.username)) {
+    return res.status(400).json({ error: "Логин должен быть длиной 3-32 символа и содержать только буквы, цифры, _, . или -" });
   }
 
-  writeDb(db);
-  res.json(sanitizeUser(user));
+  const usernameTaken = req.db.users.find(
+    (item) => item.id !== user.id && item.username.toLowerCase() === user.username.toLowerCase()
+  );
+  if (usernameTaken) {
+    return res.status(409).json({ error: "Пользователь с таким логином уже существует" });
+  }
+
+  if ("password" in req.body && String(req.body.password || "").trim()) {
+    const nextPassword = String(req.body.password).trim();
+    if (nextPassword.length < 6) {
+      return res.status(400).json({ error: "Пароль должен быть не короче 6 символов" });
+    }
+    user.passwordHash = hashPassword(nextPassword);
+    req.db.sessions = req.db.sessions.filter((session) => session.userId !== user.id);
+    const payload = createSessionPayload(req.db, user);
+    return res.json(payload);
+  }
+
+  writeDb(req.db);
+  res.json({ user: sanitizeUser(user) });
 });
 
-app.get("/api/challenges", (req, res) => {
+app.get("/api/challenges", requireAuth, (req, res) => {
   const all = readDb().challenges.map(normalizeChallenge);
+  if (req.auth.user.role === "admin") return res.json(all);
+
   const onlyActive = req.query.active === "1";
-  const filtered = onlyActive ? all.filter((c) => c.active) : all;
-  res.json(filtered);
+  const scoped = all.filter((challenge) => {
+    const assigned = challenge.assignedUserIds || [];
+    const visibleForUser = assigned.length === 0 || assigned.includes(req.auth.user.id);
+    return visibleForUser && (!onlyActive || challenge.active);
+  });
+  res.json(scoped);
 });
 
-app.post("/api/challenges", (req, res) => {
-  const db = readDb();
+app.post("/api/challenges", requireAuth, requireAdmin, (req, res) => {
   const challenge = normalizeChallenge({
     id: makeId("challenge"),
     title: String(req.body.title || "Новый челлендж").trim(),
@@ -238,18 +463,14 @@ app.post("/api/challenges", (req, res) => {
     createdAt: new Date().toISOString()
   });
 
-  db.challenges.unshift(challenge);
-  writeDb(db);
+  req.db.challenges.unshift(challenge);
+  writeDb(req.db);
   res.status(201).json(challenge);
 });
 
-app.put("/api/challenges/:id", (req, res) => {
-  const db = readDb();
-  const challenge = db.challenges.find((c) => c.id === req.params.id);
-
-  if (!challenge) {
-    return res.status(404).json({ error: "Челлендж не найден" });
-  }
+app.put("/api/challenges/:id", requireAuth, requireAdmin, (req, res) => {
+  const challenge = req.db.challenges.find((item) => item.id === req.params.id);
+  if (!challenge) return res.status(404).json({ error: "Челлендж не найден" });
 
   ["title", "category", "difficulty", "description"].forEach((field) => {
     if (field in req.body) challenge[field] = String(req.body[field] ?? "").trim();
@@ -261,46 +482,45 @@ app.put("/api/challenges/:id", (req, res) => {
     challenge.assignedUserIds = Array.isArray(req.body.assignedUserIds) ? req.body.assignedUserIds : [];
   }
 
-  writeDb(db);
+  writeDb(req.db);
   res.json(normalizeChallenge(challenge));
 });
 
-app.delete("/api/challenges/:id", (req, res) => {
-  const db = readDb();
-  const before = db.challenges.length;
-  db.challenges = db.challenges.filter((c) => c.id !== req.params.id);
-
-  if (db.challenges.length === before) {
-    return res.status(404).json({ error: "Челлендж не найден" });
-  }
-
-  writeDb(db);
+app.delete("/api/challenges/:id", requireAuth, requireAdmin, (req, res) => {
+  const before = req.db.challenges.length;
+  req.db.challenges = req.db.challenges.filter((challenge) => challenge.id !== req.params.id);
+  if (req.db.challenges.length === before) return res.status(404).json({ error: "Челлендж не найден" });
+  writeDb(req.db);
   res.json({ ok: true });
 });
 
-app.get("/api/submissions", (req, res) => {
-  const db = readDb();
-  let items = db.submissions;
-  if (req.query.userId) items = items.filter((s) => s.userId === req.query.userId);
+app.get("/api/submissions", requireAuth, (req, res) => {
+  let items = req.db.submissions;
+  if (req.auth.user.role !== "admin") {
+    items = items.filter((submission) => submission.userId === req.auth.user.id);
+  } else if (req.query.userId) {
+    items = items.filter((submission) => submission.userId === req.query.userId);
+  }
   res.json(items);
 });
 
-app.post("/api/submissions", upload.single("photo"), (req, res) => {
-  const db = readDb();
-  const user = db.users.find((u) => u.id === req.body.userId);
-  const challenge = db.challenges
+app.post("/api/submissions", requireAuth, (req, res, next) => {
+  upload.single("photo")(req, res, (err) => {
+    if (!err) return next();
+    const message = err.code === "LIMIT_FILE_SIZE" ? "Файл слишком большой. Максимум 5 МБ." : err.message;
+    return res.status(400).json({ error: message });
+  });
+}, (req, res) => {
+  const user = req.auth.user;
+  const challenge = req.db.challenges
     .map(normalizeChallenge)
-    .find((c) => c.id === req.body.challengeId && c.active);
-
-  if (!user) {
-    return res.status(400).json({ error: "Пользователь не найден" });
-  }
+    .find((item) => item.id === req.body.challengeId && item.active);
 
   if (!challenge) {
     return res.status(400).json({ error: "Челлендж не найден или отключен" });
   }
 
-  const assigned = Array.isArray(challenge.assignedUserIds) ? challenge.assignedUserIds : [];
+  const assigned = challenge.assignedUserIds || [];
   if (assigned.length > 0 && !assigned.includes(user.id)) {
     return res.status(403).json({ error: "Этот челлендж не назначен данному пользователю" });
   }
@@ -323,18 +543,14 @@ app.post("/api/submissions", upload.single("photo"), (req, res) => {
     createdAt: new Date().toISOString()
   };
 
-  db.submissions.unshift(submission);
-  writeDb(db);
+  req.db.submissions.unshift(submission);
+  writeDb(req.db);
   res.status(201).json(submission);
 });
 
-app.patch("/api/submissions/:id", (req, res) => {
-  const db = readDb();
-  const submission = db.submissions.find((s) => s.id === req.params.id);
-
-  if (!submission) {
-    return res.status(404).json({ error: "Заявка не найдена" });
-  }
+app.patch("/api/submissions/:id", requireAuth, requireAdmin, (req, res) => {
+  const submission = req.db.submissions.find((item) => item.id === req.params.id);
+  if (!submission) return res.status(404).json({ error: "Заявка не найдена" });
 
   if (["pending", "approved", "rejected", "paid"].includes(req.body.status)) {
     submission.status = req.body.status;
@@ -344,8 +560,8 @@ app.patch("/api/submissions/:id", (req, res) => {
     submission.adminComment = String(req.body.adminComment || "").trim();
   }
 
-  if (submission.status === "paid" && !db.payouts.find((p) => p.submissionId === submission.id)) {
-    db.payouts.unshift({
+  if (submission.status === "paid" && !req.db.payouts.find((item) => item.submissionId === submission.id)) {
+    req.db.payouts.unshift({
       id: makeId("payout"),
       submissionId: submission.id,
       userId: submission.userId,
@@ -355,26 +571,25 @@ app.patch("/api/submissions/:id", (req, res) => {
     });
   }
 
-  writeDb(db);
+  writeDb(req.db);
   res.json(submission);
 });
 
-app.get("/api/payouts", (_, res) => {
-  res.json(readDb().payouts);
+app.get("/api/payouts", requireAuth, requireAdmin, (req, res) => {
+  res.json(req.db.payouts);
 });
 
-app.get("/api/admin/stats", (_, res) => {
-  const db = readDb();
+app.get("/api/admin/stats", requireAuth, requireAdmin, (req, res) => {
   res.json({
-    users: db.users.length,
-    challenges: db.challenges.length,
-    activeChallenges: db.challenges.filter((c) => c.active).length,
-    submissions: db.submissions.length,
-    pending: db.submissions.filter((s) => s.status === "pending").length,
-    approved: db.submissions.filter((s) => s.status === "approved" || s.status === "paid").length,
-    rejected: db.submissions.filter((s) => s.status === "rejected").length,
-    payouts: db.payouts.length,
-    totalPaid: db.payouts.reduce((sum, p) => sum + Number(p.amount || 0), 0)
+    users: req.db.users.length,
+    challenges: req.db.challenges.length,
+    activeChallenges: req.db.challenges.filter((challenge) => challenge.active).length,
+    submissions: req.db.submissions.length,
+    pending: req.db.submissions.filter((submission) => submission.status === "pending").length,
+    approved: req.db.submissions.filter((submission) => submission.status === "approved" || submission.status === "paid").length,
+    rejected: req.db.submissions.filter((submission) => submission.status === "rejected").length,
+    payouts: req.db.payouts.length,
+    totalPaid: req.db.payouts.reduce((sum, payout) => sum + Number(payout.amount || 0), 0)
   });
 });
 

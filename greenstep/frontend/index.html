@@ -104,13 +104,13 @@
 <script src="app.js"></script>
 <script>
 const current = getCurrentUser();
-if (current) {
+if (current && getAuthToken()) {
   location.href = current.role === "admin" ? "admin.html" : "user.html";
 }
 
 loginBtn.onclick = async () => {
   try {
-    const user = await api("/api/login", {
+    const session = await api("/api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -118,8 +118,8 @@ loginBtn.onclick = async () => {
         password: loginPassword.value.trim()
       })
     });
-    setCurrentUser(user);
-    location.href = user.role === "admin" ? "admin.html" : "user.html";
+    setSession(session);
+    location.href = session.user.role === "admin" ? "admin.html" : "user.html";
   } catch (e) {
     alert(e.message);
   }
@@ -127,7 +127,7 @@ loginBtn.onclick = async () => {
 
 registerBtn.onclick = async () => {
   try {
-    const user = await api("/api/register", {
+    const session = await api("/api/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -143,7 +143,7 @@ registerBtn.onclick = async () => {
         recycling: regRecycling.value.trim()
       })
     });
-    setCurrentUser(user);
+    setSession(session);
     location.href = "user.html";
   } catch (e) {
     alert(e.message);

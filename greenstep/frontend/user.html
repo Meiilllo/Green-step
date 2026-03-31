@@ -85,11 +85,12 @@ function switchTab(id){
 
 async function loadProfile(){
   const sessionUser = getCurrentUser();
-  if (!sessionUser) return location.href = "index.html";
+  if (!sessionUser || !getAuthToken()) return location.href = "index.html";
   if (sessionUser.role !== "user") return location.href = "admin.html";
 
-  const user = await api("/api/users/" + sessionUser.id);
+  const user = await api("/api/me");
   currentUser = user;
+  updateCurrentUser(user);
 
   userLabel.textContent = user.username || "—";
   submitUsername.value = user.username || "";
@@ -122,8 +123,12 @@ async function saveProfile(){
       password: newPassword.value.trim()
     })
   });
-  currentUser = updated;
-  setCurrentUser(updated);
+  currentUser = updated.user;
+  if (updated.token) {
+    setSession(updated);
+  } else {
+    updateCurrentUser(updated.user);
+  }
   newPassword.value = "";
   await loadProfile();
   alert("Профиль сохранён");
@@ -150,7 +155,7 @@ function renderSelectedChallengeInfo(){
 
 async function loadMySubmissions(){
   if (!currentUser) return;
-  const list = await api("/api/submissions?userId=" + currentUser.id);
+  const list = await api("/api/submissions");
   mySubsCount.textContent = list.length;
   pendingCount.textContent = list.filter(x => x.status === "pending").length;
   approvedCount.textContent = list.filter(x => x.status === "approved" || x.status === "paid").length;
@@ -162,12 +167,14 @@ async function submitChallenge(){
   const file = photoInput.files[0];
   if (!file) return alert("Прикрепи фото");
   const form = new FormData();
-  form.append("userId", currentUser.id);
   form.append("challengeId", challengeSelect.value);
   form.append("comment", comment.value.trim());
   form.append("photo", file);
 
-  const res = await fetch(API_BASE + "/api/submissions", { method:"POST", body: form });
+  const headers = {};
+  const token = getAuthToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(API_BASE + "/api/submissions", { method:"POST", body: form, headers });
   const text = await res.text();
   const data = text ? JSON.parse(text) : {};
   if (!res.ok) return alert(data.error || "Ошибка");
