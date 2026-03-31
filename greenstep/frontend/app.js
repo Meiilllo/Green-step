@@ -70,5 +70,5 @@ async function logout() {
     await api("/api/logout", { method: "POST" });
   } catch {}
   clearSession();
-  location.href = "index.html";
+  location.href = "/auth";
 }

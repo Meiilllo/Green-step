@@ -384,6 +384,19 @@ app.get("/api/articles", (_, res) => {
   res.json(items);
 });
 
+app.get("/api/articles/:id", (req, res) => {
+  const db = readDb();
+  const article = db.articles
+    .map(normalizeArticle)
+    .find((item) => item.id === req.params.id && item.published);
+
+  if (!article) {
+    return res.status(404).json({ error: "Статья не найдена" });
+  }
+
+  res.json(article);
+});
+
 app.post("/api/register", checkAuthRateLimit, (req, res) => {
   const db = readDb();
   const username = String(req.body.username || "").trim();
@@ -748,6 +761,14 @@ app.get("/admin", (_, res) => {
 
 app.get("/user", (_, res) => {
   res.sendFile(path.join(FRONTEND_DIR, "user.html"));
+});
+
+app.get("/auth", (_, res) => {
+  res.sendFile(path.join(FRONTEND_DIR, "auth.html"));
+});
+
+app.get("/article", (_, res) => {
+  res.sendFile(path.join(FRONTEND_DIR, "article.html"));
 });
 
 app.listen(PORT, () => {

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Green Step - Статья</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="landing-body article-page-body">
+  <header class="landing-header">
+    <div class="landing-nav">
+      <a href="/" class="landing-brand">
+        <span class="landing-brand__dot"></span>
+        <span>Green Step</span>
+      </a>
+      <nav class="landing-menu">
+        <a href="/">Главная</a>
+        <a href="/auth">Вход</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="landing-shell">
+    <article class="article-page-card">
+      <div class="article-page-back">
+        <a class="landing-link" href="/#articles">Назад к статьям</a>
+      </div>
+      <div id="articlePageContent" class="article-page-content">
+        <div class="list-item">Загружаем статью...</div>
+      </div>
+    </article>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    function formatArticleContent(text) {
+      return String(text || "")
+        .split(/\n{2,}/)
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .map((part) => `<p>${esc(part).replace(/\n/g, "<br>")}</p>`)
+        .join("");
+    }
+
+    async function loadArticlePage() {
+      const params = new URLSearchParams(location.search);
+      const id = params.get("id");
+
+      if (!id) {
+        articlePageContent.innerHTML = '<div class="list-item">Статья не найдена.</div>';
+        return;
+      }
+
+      try {
+        const article = await api(`/api/articles/${encodeURIComponent(id)}`);
+        document.title = `Green Step - ${article.title}`;
+        articlePageContent.innerHTML = `
+          <div class="article-page-meta">
+            <div class="eyebrow">Green Step Journal</div>
+            <h1>${esc(article.title)}</h1>
+            <div class="article-page-submeta">
+              <span>${esc(article.authorName || "Green Step")}</span>
+              <span>${esc(article.readingTime || "5 мин")}</span>
+              <span>${fmtDate(article.publishedAt || article.createdAt)}</span>
+            </div>
+            <p class="article-page-excerpt">${esc(article.excerpt || "")}</p>
+          </div>
+          ${article.coverUrl ? `<img class="article-page-cover" src="${API_BASE + article.coverUrl}" alt="${esc(article.title)}">` : ""}
+          <div class="article-page-text">
+            ${formatArticleContent(article.content)}
+          </div>
+        `;
+      } catch (e) {
+        articlePageContent.innerHTML = `<div class="list-item">${esc(e.message || "Не удалось загрузить статью.")}</div>`;
+      }
+    }
+
+    loadArticlePage();
+  </script>
+</body>
+</html>

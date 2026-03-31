@@ -16,7 +16,7 @@
       <nav class="landing-menu">
         <a href="#platform">Платформа</a>
         <a href="#flow">Как это работает</a>
-        <a href="#auth">Вход</a>
+        <a href="/auth">Вход</a>
       </nav>
     </div>
   </header>
@@ -31,7 +31,7 @@
         </p>
 
         <div class="landing-hero__actions">
-          <a class="btn landing-btn" href="#auth">Начать сейчас</a>
+          <a class="btn landing-btn" href="/auth">Начать сейчас</a>
           <a class="landing-link" href="#platform">Посмотреть возможности</a>
         </div>
 
@@ -148,85 +148,15 @@
     <section class="landing-section" id="auth">
       <div class="landing-section__intro landing-section__intro-wide">
         <div class="eyebrow">Вход в систему</div>
-        <h2>Вход и регистрация встроены прямо в landing.</h2>
-        <p class="sub">Новая стартовая страница выглядит как полноценный продуктовый сайт, а не просто форма авторизации.</p>
+        <h2>Авторизация вынесена на отдельную страницу, чтобы landing оставался чистой продуктовой витриной.</h2>
+        <p class="sub">Переходи на отдельную страницу входа и регистрации, а после авторизации мы сразу отправим пользователя в его кабинет.</p>
       </div>
-
-      <div class="landing-auth-grid">
-        <section class="landing-auth-panel">
-          <div class="landing-auth-panel__head">
-            <div class="eyebrow">Login</div>
-            <h3>Войти в Green Step</h3>
-          </div>
-          <label for="loginUsername">Логин</label>
-          <input id="loginUsername" placeholder="Введите логин">
-          <label for="loginPassword">Пароль</label>
-          <input id="loginPassword" type="password" placeholder="Введите пароль">
-          <div class="actions">
-            <button class="btn landing-btn" id="loginBtn">Войти</button>
-          </div>
-          <div class="notice landing-notice">Если аккаунта еще нет, зарегистрируйся в правой колонке и сразу попадешь в личный кабинет.</div>
-        </section>
-
-        <section class="landing-auth-panel landing-auth-panel-accent">
-          <div class="landing-auth-panel__head">
-            <div class="eyebrow">Join</div>
-            <h3>Создать аккаунт</h3>
-          </div>
-
-          <div class="grid2">
-            <div>
-              <label for="regUsername">Логин</label>
-              <input id="regUsername" placeholder="Новый логин">
-            </div>
-            <div>
-              <label for="regPassword">Пароль</label>
-              <input id="regPassword" type="password" placeholder="Не менее 6 символов">
-            </div>
-          </div>
-
-          <div class="grid2">
-            <div>
-              <label for="regEmail">Email</label>
-              <input id="regEmail" placeholder="example@mail.com">
-            </div>
-            <div>
-              <label for="regCity">Город</label>
-              <input id="regCity" placeholder="Москва">
-            </div>
-          </div>
-
-          <div class="grid2">
-            <div>
-              <label for="regAge">Возраст</label>
-              <input id="regAge" placeholder="20">
-            </div>
-            <div>
-              <label for="regTransport">Транспорт</label>
-              <input id="regTransport" placeholder="Метро / велосипед / пешком">
-            </div>
-          </div>
-
-          <div class="grid2">
-            <div>
-              <label for="regDiet">Питание</label>
-              <input id="regDiet" placeholder="Смешанное">
-            </div>
-            <div>
-              <label for="regGoal">Цель</label>
-              <input id="regGoal" placeholder="Снизить использование пластика">
-            </div>
-          </div>
-
-          <label for="regBio">О себе</label>
-          <textarea id="regBio" placeholder="Коротко о себе и своих привычках"></textarea>
-          <label for="regRecycling">Сортировка отходов</label>
-          <textarea id="regRecycling" placeholder="Что и как ты сортируешь"></textarea>
-
-          <div class="actions">
-            <button class="btn blue" id="registerBtn">Зарегистрироваться</button>
-          </div>
-        </section>
+      <div class="landing-cta-panel">
+        <div>
+          <strong>Отдельная страница входа</strong>
+          <p>Пользователь попадает в отдельный экран авторизации и возвращается в свой кабинет сразу после входа.</p>
+        </div>
+        <a class="btn landing-btn" href="/auth">Открыть вход и регистрацию</a>
       </div>
     </section>
 
@@ -244,63 +174,22 @@
   <script>
     const current = getCurrentUser();
     if (current && getAuthToken()) {
-      location.href = current.role === "admin" ? "admin.html" : "user.html";
+      location.href = current.role === "admin" ? "/admin" : "/user";
     }
-
-    loginBtn.onclick = async () => {
-      try {
-        const session = await api("/api/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username: loginUsername.value.trim(),
-            password: loginPassword.value.trim()
-          })
-        });
-        setSession(session);
-        location.href = session.user.role === "admin" ? "admin.html" : "user.html";
-      } catch (e) {
-        alert(e.message);
-      }
-    };
-
-    registerBtn.onclick = async () => {
-      try {
-        const session = await api("/api/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username: regUsername.value.trim(),
-            password: regPassword.value.trim(),
-            email: regEmail.value.trim(),
-            city: regCity.value.trim(),
-            age: regAge.value.trim(),
-            goal: regGoal.value.trim(),
-            bio: regBio.value.trim(),
-            transport: regTransport.value.trim(),
-            diet: regDiet.value.trim(),
-            recycling: regRecycling.value.trim()
-          })
-        });
-        setSession(session);
-        location.href = "user.html";
-      } catch (e) {
-        alert(e.message);
-      }
-    };
 
     async function loadLandingArticles() {
       const items = await api("/api/articles");
       landingArticles.innerHTML = items.length ? items.slice(0, 6).map((article) => `
-        <article class="landing-article-card">
+        <a class="landing-article-card landing-article-card-link" href="/article?id=${encodeURIComponent(article.id)}">
           ${article.coverUrl ? `<img class="landing-article-card__image" src="${API_BASE + article.coverUrl}" alt="${esc(article.title)}">` : `<div class="landing-article-card__placeholder">Green Step</div>`}
           <div class="landing-article-card__body">
             <div class="small">${esc(article.authorName || "Green Step")} · ${esc(article.readingTime || "5 мин")}</div>
             <h3>${esc(article.title)}</h3>
             <p>${esc(article.excerpt || "")}</p>
+            <div class="landing-article-card__more">Читать статью</div>
           </div>
-        </article>
-      `).join('') : '<div class="list-item">Публикации скоро появятся.</div>';
+        </a>
+      `).join("") : '<div class="list-item">Публикации скоро появятся.</div>';
     }
 
     loadLandingArticles().catch(() => {
