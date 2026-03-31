@@ -85,6 +85,20 @@ const sanitizeUser = (u) => ({
   createdAt: u.createdAt || ""
 });
 
+const normalizeArticle = (article) => ({
+  id: article.id,
+  title: article.title || "",
+  excerpt: article.excerpt || "",
+  content: article.content || "",
+  coverUrl: article.coverUrl || "",
+  authorName: article.authorName || "Green Step",
+  readingTime: article.readingTime || "5 мин",
+  published: !!article.published,
+  createdAt: article.createdAt || "",
+  updatedAt: article.updatedAt || article.createdAt || "",
+  publishedAt: article.publishedAt || ""
+});
+
 const normalizeChallenge = (challenge) => ({
   ...challenge,
   assignedUserIds: Array.isArray(challenge.assignedUserIds) ? challenge.assignedUserIds : []
@@ -147,6 +161,34 @@ const seed = {
       createdAt: new Date().toISOString()
     }
   ],
+  articles: [
+    {
+      id: "article_demo_1",
+      title: "Как начать экологичные привычки без перегруза",
+      excerpt: "Небольшие шаги, которые проще внедрить в повседневную жизнь и не бросить через неделю.",
+      content: "Начни с одной привычки: многоразовая бутылка, отказ от лишних пакетов или короткие пешие маршруты. Когда действие становится частью рутины, добавляй следующее.",
+      coverUrl: "",
+      authorName: "Команда Green Step",
+      readingTime: "4 мин",
+      published: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      publishedAt: new Date().toISOString()
+    },
+    {
+      id: "article_demo_2",
+      title: "Почему маленькие челленджи работают лучше больших обещаний",
+      excerpt: "Экологичный прогресс устойчивее, когда он измерим и привязан к понятному действию.",
+      content: "Большие цели демотивируют, если они слишком размыты. Челлендж помогает превратить намерение в конкретное действие, которое можно проверить и повторить.",
+      coverUrl: "",
+      authorName: "Команда Green Step",
+      readingTime: "3 мин",
+      published: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      publishedAt: new Date().toISOString()
+    }
+  ],
   submissions: [],
   payouts: [],
   sessions: []
@@ -165,6 +207,11 @@ const migrateDb = () => {
 
   if (!Array.isArray(db.sessions)) {
     db.sessions = [];
+    changed = true;
+  }
+
+  if (!Array.isArray(db.articles)) {
+    db.articles = [];
     changed = true;
   }
 
@@ -188,6 +235,8 @@ const migrateDb = () => {
       changed = true;
     }
   }
+
+  db.articles = db.articles.map((article) => normalizeArticle(article));
 
   db.sessions = db.sessions.filter((session) => {
     const createdAt = Date.parse(session.createdAt || "");
@@ -217,6 +266,14 @@ const upload = multer({
     cb(null, true);
   }
 });
+
+const runSingleUpload = (fieldName) => (req, res, next) => {
+  upload.single(fieldName)(req, res, (err) => {
+    if (!err) return next();
+    const message = err.code === "LIMIT_FILE_SIZE" ? "Файл слишком большой. Максимум 5 МБ." : err.message;
+    return res.status(400).json({ error: message });
+  });
+};
 
 const cleanupRateLimit = () => {
   const now = Date.now();
@@ -316,6 +373,15 @@ const createSessionPayload = (db, user) => {
 
 app.get("/api/health", (_, res) => {
   res.json({ ok: true, env: NODE_ENV });
+});
+
+app.get("/api/articles", (_, res) => {
+  const db = readDb();
+  const items = db.articles
+    .map(normalizeArticle)
+    .filter((article) => article.published)
+    .sort((a, b) => Date.parse(b.publishedAt || b.createdAt || 0) - Date.parse(a.publishedAt || a.createdAt || 0));
+  res.json(items);
 });
 
 app.post("/api/register", checkAuthRateLimit, (req, res) => {
@@ -455,6 +521,78 @@ app.get("/api/challenges", requireAuth, (req, res) => {
     return visibleForUser && (!onlyActive || challenge.active);
   });
   res.json(scoped);
+});
+
+app.get("/api/admin/articles", requireAuth, requireAdmin, (req, res) => {
+  const items = req.db.articles
+    .map(normalizeArticle)
+    .sort((a, b) => Date.parse(b.createdAt || 0) - Date.parse(a.createdAt || 0));
+  res.json(items);
+});
+
+app.post("/api/admin/articles", requireAuth, requireAdmin, runSingleUpload("cover"), (req, res) => {
+  const title = String(req.body.title || "").trim();
+  const excerpt = String(req.body.excerpt || "").trim();
+  const content = String(req.body.content || "").trim();
+  const authorName = String(req.body.authorName || "Green Step").trim();
+  const readingTime = String(req.body.readingTime || "5 мин").trim();
+  const published = String(req.body.published || "") === "true" || req.body.published === true;
+
+  if (!title || !excerpt || !content) {
+    return res.status(400).json({ error: "Заполни заголовок, краткое описание и текст статьи" });
+  }
+
+  const now = new Date().toISOString();
+  const article = normalizeArticle({
+    id: makeId("article"),
+    title,
+    excerpt,
+    content,
+    authorName: authorName || "Green Step",
+    readingTime: readingTime || "5 мин",
+    coverUrl: req.file ? `/uploads/${req.file.filename}` : "",
+    published,
+    createdAt: now,
+    updatedAt: now,
+    publishedAt: published ? now : ""
+  });
+
+  req.db.articles.unshift(article);
+  writeDb(req.db);
+  res.status(201).json(article);
+});
+
+app.put("/api/admin/articles/:id", requireAuth, requireAdmin, runSingleUpload("cover"), (req, res) => {
+  const article = req.db.articles.find((item) => item.id === req.params.id);
+  if (!article) return res.status(404).json({ error: "Статья не найдена" });
+
+  if ("title" in req.body) article.title = String(req.body.title || "").trim();
+  if ("excerpt" in req.body) article.excerpt = String(req.body.excerpt || "").trim();
+  if ("content" in req.body) article.content = String(req.body.content || "").trim();
+  if ("authorName" in req.body) article.authorName = String(req.body.authorName || "Green Step").trim();
+  if ("readingTime" in req.body) article.readingTime = String(req.body.readingTime || "5 мин").trim();
+  if (req.file) article.coverUrl = `/uploads/${req.file.filename}`;
+  if ("published" in req.body) {
+    const published = String(req.body.published) === "true" || req.body.published === true;
+    article.published = published;
+    article.publishedAt = published ? (article.publishedAt || new Date().toISOString()) : "";
+  }
+  article.updatedAt = new Date().toISOString();
+
+  if (!String(article.title || "").trim() || !String(article.excerpt || "").trim() || !String(article.content || "").trim()) {
+    return res.status(400).json({ error: "У статьи должны быть заголовок, описание и основной текст" });
+  }
+
+  writeDb(req.db);
+  res.json(normalizeArticle(article));
+});
+
+app.delete("/api/admin/articles/:id", requireAuth, requireAdmin, (req, res) => {
+  const before = req.db.articles.length;
+  req.db.articles = req.db.articles.filter((item) => item.id !== req.params.id);
+  if (req.db.articles.length === before) return res.status(404).json({ error: "Статья не найдена" });
+  writeDb(req.db);
+  res.json({ ok: true });
 });
 
 app.post("/api/challenges", requireAuth, requireAdmin, (req, res) => {

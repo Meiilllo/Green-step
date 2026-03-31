@@ -1,239 +1,414 @@
-<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Green Step — Админка</title><link rel="stylesheet" href="styles.css"></head><body onload="bootAdmin()">
-<header><div class="topbar"><div><h1>Green Step — Админка</h1></div><div class="actions"><button class="btn secondary" onclick="logout()">Выйти</button></div></div></header>
-<main class="container">
-<section class="hero"><div class="stats"><div class="stat"><div class="label">Пользователей</div><div class="value" id="usersCount">0</div></div><div class="stat"><div class="label">Челленджей</div><div class="value" id="challengesCount">0</div></div><div class="stat"><div class="label">Активных</div><div class="value" id="activeChallengesCount">0</div></div><div class="stat"><div class="label">Заявок</div><div class="value" id="submissionsCount">0</div></div><div class="stat"><div class="label">Выплачено</div><div class="value" id="paidTotal">0 ₽</div></div></div></section>
-
-<div class="layout">
-<section class="card">
-<div class="tabs">
-  <button class="tab-btn active" data-tab="challenges">Челленджи</button>
-  <button class="tab-btn" data-tab="users">Пользователи</button>
-  <button class="tab-btn" data-tab="moderation">Проверка</button>
-</div>
-
-<div class="tab active" id="challenges">
-  <h2>Создание челленджа для отдельных пользователей</h2>
-  <div class="grid2">
-    <div><label>Название</label><input id="newTitle"></div>
-    <div><label>Награда</label><input id="newReward" type="number" value="100"></div>
-  </div>
-  <div class="grid3">
-    <div><label>Категория</label><input id="newCategory" value="Общее"></div>
-    <div><label>Сложность</label><input id="newDifficulty" value="Средний"></div>
-    <div><label>Активен</label><select id="newActive"><option value="1">Да</option><option value="0">Нет</option></select></div>
-  </div>
-  <label>Описание</label><textarea id="newDescription"></textarea>
-  <label>Назначить пользователям</label>
-  <div id="assignUsersWrap" class="list"></div>
-  <div class="actions"><button class="btn" id="createChallengeBtn">Создать челлендж</button></div>
-
-  <h3 style="margin-top:18px">Список челленджей</h3>
-  <div id="challengeList" class="challenge-grid"></div>
-</div>
-
-<div class="tab" id="users">
-  <h2>Пользователи в системе</h2>
-  <div class="table-wrap"><table><thead><tr><th>Имя</th><th>Роль</th><th>Email</th><th>Город</th><th>Цель</th></tr></thead><tbody id="usersBody"></tbody></table></div>
-</div>
-
-<div class="tab" id="moderation">
-  <h2>Проверка заявок</h2>
-  <div id="pendingList" class="submission-grid"></div>
-</div>
-</section>
-
-<aside class="card">
-  <h2>Выплаты</h2>
-  <div class="actions"><button class="btn blue" id="markPaidBtn">Отметить approved как paid</button></div>
-  <div id="payoutList" class="list" style="margin-top:14px"></div>
-</aside>
-</div></main>
-
-<script src="app.js"></script>
-<script>
-let usersCache = [];
-let challengesCache = [];
-
-function switchTab(id){
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===id));
-  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.id===id));
-}
-
-async function guardAdmin(){
-  const user = getCurrentUser();
-  if (!user || !getAuthToken()) return location.href = "index.html";
-  if (user.role !== "admin") return location.href = "user.html";
-  const freshUser = await api('/api/me');
-  updateCurrentUser(freshUser);
-  if (freshUser.role !== "admin") return location.href = "user.html";
-}
-
-async function loadStats(){
-  const s = await api('/api/admin/stats');
-  usersCount.textContent = s.users;
-  challengesCount.textContent = s.challenges;
-  activeChallengesCount.textContent = s.activeChallenges;
-  submissionsCount.textContent = s.submissions;
-  paidTotal.textContent = money(s.totalPaid);
-}
-
-async function loadUsers(){
-  const users = await api('/api/users');
-  usersCache = users.filter(u => u.role === "user");
-  usersBody.innerHTML = users.length ? users.map(u=>`<tr><td>${esc(u.username)}</td><td>${esc(u.role)}</td><td>${esc(u.email || '')}</td><td>${esc(u.city || '')}</td><td>${esc(u.goal || '')}</td></tr>`).join('') : '<tr><td colspan="5" class="small" style="padding:16px">Пользователей нет.</td></tr>';
-  renderAssignUsers();
-}
-
-function renderAssignUsers(selectedIds = []){
-  assignUsersWrap.innerHTML = usersCache.length ? usersCache.map(u => `
-    <label class="list-item" style="display:flex;align-items:center;gap:10px">
-      <input type="checkbox" class="assign-user" value="${u.id}" ${selectedIds.includes(u.id) ? "checked" : ""} style="width:auto">
-      <span>${esc(u.username)}${u.city ? " · " + esc(u.city) : ""}</span>
-    </label>
-  `).join('') : '<div class="list-item">Нет пользователей для назначения.</div>';
-}
-
-function getSelectedAssignedUserIds(scope = document){
-  return Array.from(scope.querySelectorAll('.assign-user:checked')).map(x => x.value);
-}
-
-async function loadChallenges(){
-  const list = await api('/api/challenges');
-  challengesCache = list;
-  challengeList.innerHTML = list.length ? list.map(c=>`
-    <div class="challenge">
-      <div class="challenge-top">
-        <div>
-          <h3>${esc(c.title)}</h3>
-          <div class="small">${esc(c.description || '')}</div>
-        </div>
-        <div class="tag">${money(c.reward)}</div>
-      </div>
-      <div class="meta">
-        <span class="tag">${esc(c.category || 'Общее')}</span>
-        <span class="tag">${esc(c.difficulty || 'Средний')}</span>
-        <span class="tag">${c.active ? 'Активен' : 'Отключён'}</span>
-      </div>
-      <div class="list-item" style="margin-bottom:10px">
-        Назначен: ${renderAssignedNames(c.assignedUserIds || [])}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Green Step - Админ-панель</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body onload="bootAdmin()">
+  <header>
+    <div class="topbar">
+      <div>
+        <h1>Green Step - Админка</h1>
       </div>
       <div class="actions">
-        <button class="btn secondary" onclick="toggleChallenge('${c.id}', ${c.active ? 'false' : 'true'})">${c.active ? 'Отключить' : 'Активировать'}</button>
-        <button class="btn secondary" onclick="editAssignments('${c.id}')">Изменить назначения</button>
-        <button class="btn danger" onclick="deleteChallenge('${c.id}')">Удалить</button>
-      </div>
-      <div id="assign_edit_${c.id}" style="display:none;margin-top:12px">
-        <div class="small" style="margin-bottom:8px">Выбери пользователей для этого челленджа:</div>
-        <div class="list">${usersCache.map(u => `
-          <label class="list-item" style="display:flex;align-items:center;gap:10px">
-            <input type="checkbox" class="assign-edit-${c.id}" value="${u.id}" ${(c.assignedUserIds || []).includes(u.id) ? "checked" : ""} style="width:auto">
-            <span>${esc(u.username)}</span>
-          </label>
-        `).join('')}</div>
-        <div class="actions">
-          <button class="btn blue" onclick="saveAssignments('${c.id}')">Сохранить назначения</button>
-        </div>
+        <button class="btn secondary" onclick="logout()">Выйти</button>
       </div>
     </div>
-  `).join('') : '<div class="list-item">Челленджей нет.</div>';
-}
+  </header>
 
-function renderAssignedNames(ids){
-  const names = usersCache.filter(u => ids.includes(u.id)).map(u => u.username);
-  return names.length ? names.map(esc).join(', ') : 'никому';
-}
+  <main class="container">
+    <section class="hero">
+      <div class="stats">
+        <div class="stat"><div class="label">Пользователей</div><div class="value" id="usersCount">0</div></div>
+        <div class="stat"><div class="label">Челленджей</div><div class="value" id="challengesCount">0</div></div>
+        <div class="stat"><div class="label">Активных</div><div class="value" id="activeChallengesCount">0</div></div>
+        <div class="stat"><div class="label">Заявок</div><div class="value" id="submissionsCount">0</div></div>
+        <div class="stat"><div class="label">Выплачено</div><div class="value" id="paidTotal">0 ₽</div></div>
+      </div>
+    </section>
 
-async function createChallenge(){
-  await api('/api/challenges', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({
-      title: newTitle.value.trim(),
-      reward: Number(newReward.value || 100),
-      category: newCategory.value.trim(),
-      difficulty: newDifficulty.value.trim(),
-      description: newDescription.value.trim(),
-      active: newActive.value === '1',
-      assignedUserIds: getSelectedAssignedUserIds()
-    })
-  });
-  newTitle.value = '';
-  newDescription.value = '';
-  renderAssignUsers([]);
-  await refreshAll();
-}
+    <div class="layout">
+      <section class="card">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="challenges">Челленджи</button>
+          <button class="tab-btn" data-tab="users">Пользователи</button>
+          <button class="tab-btn" data-tab="moderation">Проверка</button>
+          <button class="tab-btn" data-tab="articles">Статьи</button>
+        </div>
 
-window.toggleChallenge = async function(id, active){
-  await api('/api/challenges/' + id, {
-    method:'PUT',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ active })
-  });
-  await refreshAll();
-}
+        <div class="tab active" id="challenges">
+          <h2>Создание челленджа для отдельных пользователей</h2>
+          <div class="grid2">
+            <div><label>Название</label><input id="newTitle"></div>
+            <div><label>Награда</label><input id="newReward" type="number" value="100"></div>
+          </div>
+          <div class="grid3">
+            <div><label>Категория</label><input id="newCategory" value="Общее"></div>
+            <div><label>Сложность</label><input id="newDifficulty" value="Средний"></div>
+            <div><label>Активен</label><select id="newActive"><option value="1">Да</option><option value="0">Нет</option></select></div>
+          </div>
+          <label>Описание</label><textarea id="newDescription"></textarea>
+          <label>Назначить пользователям</label>
+          <div id="assignUsersWrap" class="list"></div>
+          <div class="actions"><button class="btn" id="createChallengeBtn">Создать челлендж</button></div>
 
-window.deleteChallenge = async function(id){
-  await api('/api/challenges/' + id, { method:'DELETE' });
-  await refreshAll();
-}
+          <h3 style="margin-top:18px">Список челленджей</h3>
+          <div id="challengeList" class="challenge-grid"></div>
+        </div>
 
-window.editAssignments = function(id){
-  const box = document.getElementById('assign_edit_' + id);
-  box.style.display = box.style.display === 'none' ? 'block' : 'none';
-}
+        <div class="tab" id="users">
+          <h2>Пользователи в системе</h2>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Имя</th><th>Роль</th><th>Email</th><th>Город</th><th>Цель</th></tr></thead>
+              <tbody id="usersBody"></tbody>
+            </table>
+          </div>
+        </div>
 
-window.saveAssignments = async function(id){
-  const checked = Array.from(document.querySelectorAll('.assign-edit-' + id + ':checked')).map(x => x.value);
-  await api('/api/challenges/' + id, {
-    method:'PUT',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ assignedUserIds: checked })
-  });
-  await refreshAll();
-}
+        <div class="tab" id="moderation">
+          <h2>Проверка заявок</h2>
+          <div id="pendingList" class="submission-grid"></div>
+        </div>
 
-async function loadModeration(){
-  const items = await api('/api/submissions');
-  const pending = items.filter(x => x.status === 'pending');
-  pendingList.innerHTML = pending.length ? pending.map(s=>`<div class="submission"><div class="submission-top"><div><h3>${esc(s.challengeTitle)}</h3><div class="small">${esc(s.username)} · ${fmtDate(s.createdAt)}</div></div><div class="tag">${money(s.reward)}</div></div><div class="grid2"><div><div class="list-item"><strong>Комментарий</strong><div class="small">${esc(s.comment || '—')}</div></div><label>Комментарий администратора</label><textarea id="comment_${s.id}"></textarea><div class="actions"><button class="btn" onclick="setSubmissionStatus('${s.id}', 'approved')">Подтвердить</button><button class="btn danger" onclick="setSubmissionStatus('${s.id}', 'rejected')">Отклонить</button></div></div><div class="preview-card"><img src="${API_BASE + s.photoUrl}"><div class="cap">${esc(s.username)}</div></div></div></div>`).join('') : '<div class="list-item">Нет заявок на проверке.</div>';
-}
+        <div class="tab" id="articles">
+          <h2>Публикация статей</h2>
+          <div class="grid2">
+            <div><label>Заголовок</label><input id="articleTitle" placeholder="Например: 5 простых эко-привычек"></div>
+            <div><label>Автор</label><input id="articleAuthor" placeholder="Команда Green Step" value="Команда Green Step"></div>
+          </div>
+          <div class="grid2">
+            <div><label>Время чтения</label><input id="articleReadingTime" placeholder="5 мин" value="5 мин"></div>
+            <div><label>Статус</label><select id="articlePublished"><option value="true">Опубликовать</option><option value="false">Черновик</option></select></div>
+          </div>
+          <label>Краткое описание</label>
+          <textarea id="articleExcerpt" placeholder="Короткий анонс статьи для карточки"></textarea>
+          <label>Полный текст</label>
+          <textarea id="articleContent" placeholder="Основной текст статьи"></textarea>
+          <label>Обложка</label>
+          <input id="articleCover" type="file" accept="image/png,image/jpeg,image/webp">
+          <div id="articleCoverPreview" class="preview-grid"></div>
+          <div class="actions">
+            <button class="btn blue" id="createArticleBtn">Опубликовать статью</button>
+          </div>
 
-window.setSubmissionStatus = async function(id, status){
-  const adminComment = document.getElementById('comment_' + id)?.value || '';
-  await api('/api/submissions/' + id, {
-    method:'PATCH',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ status, adminComment })
-  });
-  await refreshAll();
-}
+          <h3 style="margin-top:18px">Все статьи</h3>
+          <div id="articlesList" class="articles-admin-grid"></div>
+        </div>
+      </section>
 
-async function markPaid(){
-  const items = await api('/api/submissions');
-  for (const item of items.filter(x => x.status === 'approved')) {
-    await api('/api/submissions/' + item.id, {
-      method:'PATCH',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ status:'paid', adminComment:item.adminComment || 'Отмечено как выплачено' })
-    });
-  }
-  await refreshAll();
-}
+      <aside class="card">
+        <h2>Выплаты</h2>
+        <div class="actions"><button class="btn blue" id="markPaidBtn">Отметить approved как paid</button></div>
+        <div id="payoutList" class="list" style="margin-top:14px"></div>
+      </aside>
+    </div>
+  </main>
 
-async function loadPayouts(){
-  const items = await api('/api/payouts');
-  payoutList.innerHTML = items.length ? items.map(p=>`<div class="list-item">${fmtDate(p.createdAt)} · ${esc(p.username)} · ${money(p.amount)}</div>`).join('') : '<div class="list-item">Выплат пока нет.</div>';
-}
+  <script src="app.js"></script>
+  <script>
+    let usersCache = [];
+    let challengesCache = [];
 
-async function refreshAll(){
-  await Promise.all([loadStats(), loadUsers(), loadChallenges(), loadModeration(), loadPayouts()]);
-}
+    function switchTab(id) {
+      document.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('active', b.dataset.tab === id));
+      document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.id === id));
+    }
 
-async function bootAdmin(){
-  await guardAdmin();
-  document.querySelectorAll('.tab-btn').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
-  createChallengeBtn.onclick = ()=>createChallenge().catch(e=>alert(e.message));
-  markPaidBtn.onclick = ()=>markPaid().catch(e=>alert(e.message));
-  refreshAll().catch(e=>alert(e.message));
-}
-</script></body></html>
+    async function guardAdmin() {
+      const user = getCurrentUser();
+      if (!user || !getAuthToken()) return location.href = "index.html";
+      if (user.role !== "admin") return location.href = "user.html";
+      const freshUser = await api('/api/me');
+      updateCurrentUser(freshUser);
+      if (freshUser.role !== "admin") return location.href = "user.html";
+    }
+
+    async function loadStats() {
+      const s = await api('/api/admin/stats');
+      usersCount.textContent = s.users;
+      challengesCount.textContent = s.challenges;
+      activeChallengesCount.textContent = s.activeChallenges;
+      submissionsCount.textContent = s.submissions;
+      paidTotal.textContent = money(s.totalPaid);
+    }
+
+    async function loadUsers() {
+      const users = await api('/api/users');
+      usersCache = users.filter((u) => u.role === "user");
+      usersBody.innerHTML = users.length
+        ? users.map((u) => `<tr><td>${esc(u.username)}</td><td>${esc(u.role)}</td><td>${esc(u.email || '')}</td><td>${esc(u.city || '')}</td><td>${esc(u.goal || '')}</td></tr>`).join('')
+        : '<tr><td colspan="5" class="small" style="padding:16px">Пользователей нет.</td></tr>';
+      renderAssignUsers();
+    }
+
+    function renderAssignUsers(selectedIds = []) {
+      assignUsersWrap.innerHTML = usersCache.length
+        ? usersCache.map((u) => `
+          <label class="list-item" style="display:flex;align-items:center;gap:10px">
+            <input type="checkbox" class="assign-user" value="${u.id}" ${selectedIds.includes(u.id) ? "checked" : ""} style="width:auto">
+            <span>${esc(u.username)}${u.city ? " · " + esc(u.city) : ""}</span>
+          </label>
+        `).join('')
+        : '<div class="list-item">Нет пользователей для назначения.</div>';
+    }
+
+    function getSelectedAssignedUserIds(scope = document) {
+      return Array.from(scope.querySelectorAll('.assign-user:checked')).map((x) => x.value);
+    }
+
+    async function loadChallenges() {
+      const list = await api('/api/challenges');
+      challengesCache = list;
+      challengeList.innerHTML = list.length ? list.map((c) => `
+        <div class="challenge">
+          <div class="challenge-top">
+            <div>
+              <h3>${esc(c.title)}</h3>
+              <div class="small">${esc(c.description || '')}</div>
+            </div>
+            <div class="tag">${money(c.reward)}</div>
+          </div>
+          <div class="meta">
+            <span class="tag">${esc(c.category || 'Общее')}</span>
+            <span class="tag">${esc(c.difficulty || 'Средний')}</span>
+            <span class="tag">${c.active ? 'Активен' : 'Отключен'}</span>
+          </div>
+          <div class="list-item" style="margin-bottom:10px">
+            Назначен: ${renderAssignedNames(c.assignedUserIds || [])}
+          </div>
+          <div class="actions">
+            <button class="btn secondary" onclick="toggleChallenge('${c.id}', ${c.active ? 'false' : 'true'})">${c.active ? 'Отключить' : 'Активировать'}</button>
+            <button class="btn secondary" onclick="editAssignments('${c.id}')">Изменить назначения</button>
+            <button class="btn danger" onclick="deleteChallenge('${c.id}')">Удалить</button>
+          </div>
+          <div id="assign_edit_${c.id}" style="display:none;margin-top:12px">
+            <div class="small" style="margin-bottom:8px">Выбери пользователей для этого челленджа:</div>
+            <div class="list">${usersCache.map((u) => `
+              <label class="list-item" style="display:flex;align-items:center;gap:10px">
+                <input type="checkbox" class="assign-edit-${c.id}" value="${u.id}" ${(c.assignedUserIds || []).includes(u.id) ? "checked" : ""} style="width:auto">
+                <span>${esc(u.username)}</span>
+              </label>
+            `).join('')}</div>
+            <div class="actions">
+              <button class="btn blue" onclick="saveAssignments('${c.id}')">Сохранить назначения</button>
+            </div>
+          </div>
+        </div>
+      `).join('') : '<div class="list-item">Челленджей нет.</div>';
+    }
+
+    function renderAssignedNames(ids) {
+      const names = usersCache.filter((u) => ids.includes(u.id)).map((u) => u.username);
+      return names.length ? names.map(esc).join(', ') : 'никому';
+    }
+
+    async function createChallenge() {
+      await api('/api/challenges', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newTitle.value.trim(),
+          reward: Number(newReward.value || 100),
+          category: newCategory.value.trim(),
+          difficulty: newDifficulty.value.trim(),
+          description: newDescription.value.trim(),
+          active: newActive.value === '1',
+          assignedUserIds: getSelectedAssignedUserIds()
+        })
+      });
+      newTitle.value = '';
+      newDescription.value = '';
+      renderAssignUsers([]);
+      await refreshAll();
+    }
+
+    window.toggleChallenge = async function(id, active) {
+      await api('/api/challenges/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active })
+      });
+      await refreshAll();
+    };
+
+    window.deleteChallenge = async function(id) {
+      await api('/api/challenges/' + id, { method: 'DELETE' });
+      await refreshAll();
+    };
+
+    window.editAssignments = function(id) {
+      const box = document.getElementById('assign_edit_' + id);
+      box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    };
+
+    window.saveAssignments = async function(id) {
+      const checked = Array.from(document.querySelectorAll('.assign-edit-' + id + ':checked')).map((x) => x.value);
+      await api('/api/challenges/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignedUserIds: checked })
+      });
+      await refreshAll();
+    };
+
+    async function loadModeration() {
+      const items = await api('/api/submissions');
+      const pending = items.filter((x) => x.status === 'pending');
+      pendingList.innerHTML = pending.length ? pending.map((s) => `
+        <div class="submission">
+          <div class="submission-top">
+            <div>
+              <h3>${esc(s.challengeTitle)}</h3>
+              <div class="small">${esc(s.username)} · ${fmtDate(s.createdAt)}</div>
+            </div>
+            <div class="tag">${money(s.reward)}</div>
+          </div>
+          <div class="grid2">
+            <div>
+              <div class="list-item">
+                <strong>Комментарий</strong>
+                <div class="small">${esc(s.comment || '—')}</div>
+              </div>
+              <label>Комментарий администратора</label>
+              <textarea id="comment_${s.id}"></textarea>
+              <div class="actions">
+                <button class="btn" onclick="setSubmissionStatus('${s.id}', 'approved')">Подтвердить</button>
+                <button class="btn danger" onclick="setSubmissionStatus('${s.id}', 'rejected')">Отклонить</button>
+              </div>
+            </div>
+            <div class="preview-card"><img src="${API_BASE + s.photoUrl}"><div class="cap">${esc(s.username)}</div></div>
+          </div>
+        </div>
+      `).join('') : '<div class="list-item">Нет заявок на проверке.</div>';
+    }
+
+    window.setSubmissionStatus = async function(id, status) {
+      const adminComment = document.getElementById('comment_' + id)?.value || '';
+      await api('/api/submissions/' + id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, adminComment })
+      });
+      await refreshAll();
+    };
+
+    async function markPaid() {
+      const items = await api('/api/submissions');
+      for (const item of items.filter((x) => x.status === 'approved')) {
+        await api('/api/submissions/' + item.id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'paid', adminComment: item.adminComment || 'Отмечено как выплачено' })
+        });
+      }
+      await refreshAll();
+    }
+
+    async function loadPayouts() {
+      const items = await api('/api/payouts');
+      payoutList.innerHTML = items.length
+        ? items.map((p) => `<div class="list-item">${fmtDate(p.createdAt)} · ${esc(p.username)} · ${money(p.amount)}</div>`).join('')
+        : '<div class="list-item">Выплат пока нет.</div>';
+    }
+
+    function resetArticleForm() {
+      articleTitle.value = '';
+      articleAuthor.value = 'Команда Green Step';
+      articleReadingTime.value = '5 мин';
+      articleExcerpt.value = '';
+      articleContent.value = '';
+      articlePublished.value = 'true';
+      articleCover.value = '';
+      articleCoverPreview.innerHTML = '';
+    }
+
+    async function createArticle() {
+      const form = new FormData();
+      form.append('title', articleTitle.value.trim());
+      form.append('authorName', articleAuthor.value.trim());
+      form.append('readingTime', articleReadingTime.value.trim());
+      form.append('excerpt', articleExcerpt.value.trim());
+      form.append('content', articleContent.value.trim());
+      form.append('published', articlePublished.value);
+      if (articleCover.files[0]) form.append('cover', articleCover.files[0]);
+
+      const headers = {};
+      const token = getAuthToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const res = await fetch(`${API_BASE}/api/admin/articles`, { method: 'POST', body: form, headers });
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : {};
+      if (!res.ok) throw new Error(data.error || 'Ошибка публикации статьи');
+
+      resetArticleForm();
+      await loadArticles();
+    }
+
+    async function loadArticles() {
+      const items = await api('/api/admin/articles');
+      articlesList.innerHTML = items.length ? items.map((article) => `
+        <article class="article-admin-card">
+          ${article.coverUrl ? `<img class="article-admin-card__image" src="${API_BASE + article.coverUrl}" alt="${esc(article.title)}">` : ''}
+          <div class="article-admin-card__body">
+            <div class="meta">
+              <span class="tag">${article.published ? 'Опубликовано' : 'Черновик'}</span>
+              <span class="tag">${esc(article.readingTime || '5 мин')}</span>
+            </div>
+            <h3>${esc(article.title)}</h3>
+            <div class="small">${esc(article.authorName || 'Green Step')} · ${fmtDate(article.createdAt)}</div>
+            <p class="small">${esc(article.excerpt || '')}</p>
+            <div class="actions">
+              <button class="btn secondary" onclick="toggleArticlePublished('${article.id}', ${article.published ? 'false' : 'true'})">${article.published ? 'Снять с публикации' : 'Опубликовать'}</button>
+              <button class="btn danger" onclick="deleteArticle('${article.id}')">Удалить</button>
+            </div>
+          </div>
+        </article>
+      `).join('') : '<div class="list-item">Статей пока нет.</div>';
+    }
+
+    window.toggleArticlePublished = async function(id, published) {
+      const form = new FormData();
+      form.append('published', published);
+      const headers = {};
+      const token = getAuthToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch(`${API_BASE}/api/admin/articles/${id}`, { method: 'PUT', body: form, headers });
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : {};
+      if (!res.ok) throw new Error(data.error || 'Ошибка обновления статьи');
+      await loadArticles();
+    };
+
+    window.deleteArticle = async function(id) {
+      await api(`/api/admin/articles/${id}`, { method: 'DELETE' });
+      await loadArticles();
+    };
+
+    async function refreshAll() {
+      await Promise.all([loadStats(), loadUsers(), loadChallenges(), loadModeration(), loadPayouts(), loadArticles()]);
+    }
+
+    async function bootAdmin() {
+      await guardAdmin();
+      document.querySelectorAll('.tab-btn').forEach((b) => b.onclick = () => switchTab(b.dataset.tab));
+      createChallengeBtn.onclick = () => createChallenge().catch((e) => alert(e.message));
+      markPaidBtn.onclick = () => markPaid().catch((e) => alert(e.message));
+      createArticleBtn.onclick = () => createArticle().catch((e) => alert(e.message));
+      articleCover.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return articleCoverPreview.innerHTML = '';
+        const reader = new FileReader();
+        reader.onload = () => {
+          articleCoverPreview.innerHTML = `<div class="preview-card"><img src="${reader.result}"><div class="cap">${esc(file.name)}</div></div>`;
+        };
+        reader.readAsDataURL(file);
+      };
+      refreshAll().catch((e) => alert(e.message));
+    }
+  </script>
+</body>
+</html>

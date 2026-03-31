@@ -229,6 +229,15 @@
         </section>
       </div>
     </section>
+
+    <section class="landing-section" id="articles">
+      <div class="landing-section__intro landing-section__intro-wide">
+        <div class="eyebrow">Журнал Green Step</div>
+        <h2>Интересные статьи</h2>
+        <p class="sub">Публикации о повседневных привычках, устойчивом образе жизни и практичных способах снижать экологический след без перегруза.</p>
+      </div>
+      <div id="landingArticles" class="landing-articles-grid"></div>
+    </section>
   </main>
 
   <script src="app.js"></script>
@@ -279,6 +288,24 @@
         alert(e.message);
       }
     };
+
+    async function loadLandingArticles() {
+      const items = await api("/api/articles");
+      landingArticles.innerHTML = items.length ? items.slice(0, 6).map((article) => `
+        <article class="landing-article-card">
+          ${article.coverUrl ? `<img class="landing-article-card__image" src="${API_BASE + article.coverUrl}" alt="${esc(article.title)}">` : `<div class="landing-article-card__placeholder">Green Step</div>`}
+          <div class="landing-article-card__body">
+            <div class="small">${esc(article.authorName || "Green Step")} · ${esc(article.readingTime || "5 мин")}</div>
+            <h3>${esc(article.title)}</h3>
+            <p>${esc(article.excerpt || "")}</p>
+          </div>
+        </article>
+      `).join('') : '<div class="list-item">Публикации скоро появятся.</div>';
+    }
+
+    loadLandingArticles().catch(() => {
+      landingArticles.innerHTML = '<div class="list-item">Не удалось загрузить статьи.</div>';
+    });
   </script>
 </body>
 </html>
