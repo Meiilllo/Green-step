@@ -21,6 +21,7 @@ const AUTH_MAX_ATTEMPTS = 10;
 const BODY_LIMIT = process.env.BODY_LIMIT || "200kb";
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const DEFAULT_ADMIN_PASSWORD = "ls%FE<6p@:>yT[;";
 
 const authRateLimit = new Map();
 
@@ -94,7 +95,7 @@ const seed = {
     {
       id: "admin_1",
       username: "admin",
-      passwordHash: hashPassword("admin"),
+      passwordHash: hashPassword(DEFAULT_ADMIN_PASSWORD),
       role: "admin",
       email: "admin@greenstep.local",
       city: "Москва",
@@ -170,6 +171,12 @@ const migrateDb = () => {
   for (const user of db.users) {
     if (!user.passwordHash && user.password) {
       user.passwordHash = hashPassword(String(user.password));
+      delete user.password;
+      changed = true;
+    }
+
+    if (user.id === "admin_1" || user.username === "admin") {
+      user.passwordHash = hashPassword(DEFAULT_ADMIN_PASSWORD);
       delete user.password;
       changed = true;
     }
