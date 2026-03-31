@@ -30,7 +30,7 @@
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{
-  font-family:"Aptos", "Segoe UI Variable Text", "Segoe UI", "Trebuchet MS", Helvetica, Arial, sans-serif;
+  font-family:"Plus Jakarta Sans", "Segoe UI", Helvetica, Arial, sans-serif;
   color:var(--text);
   background:
     radial-gradient(circle at top left, rgba(255,255,255,.95) 0, rgba(255,255,255,0) 24%),
@@ -47,7 +47,7 @@ h1,h2,h3,
 .landing-hero__copy h1,
 .landing-section__intro h2,
 .article-page-meta h1{
-  font-family:"Aptos Display", "Segoe UI Variable Display", "Segoe UI", "Trebuchet MS", Helvetica, Arial, sans-serif;
+  font-family:"Sora", "Plus Jakarta Sans", "Segoe UI", Helvetica, Arial, sans-serif;
 }
 
 header{
