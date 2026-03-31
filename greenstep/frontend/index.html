@@ -1,152 +1,284 @@
-<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Green Step — Вход</title><link rel="stylesheet" href="styles.css"></head><body>
-<header><div class="topbar"><div><h1>Green Step</h1></div></div></header>
-
-<div class="auth-wrap">
-  <div class="hero">
-    <h2>Вход и регистрация</h2>
-  </div>
-
-  <div class="auth-grid">
-    <div class="auth-card">
-      <h2>Войти</h2>
-      <label>Логин</label>
-      <input id="loginUsername" placeholder="Введите логин">
-      <label>Пароль</label>
-      <input id="loginPassword" type="password" placeholder="Введите пароль">
-      <div class="actions">
-        <button class="btn" id="loginBtn">Войти</button>
-      </div>
-      <div class="notice" style="margin-top:14px">Если такого аккаунта нет, появится сообщение «Пользователь не найден».</div>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Green Step - Экосистема экологичных привычек</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="landing-body">
+  <header class="landing-header">
+    <div class="landing-nav">
+      <a href="/" class="landing-brand">
+        <span class="landing-brand__dot"></span>
+        <span>Green Step</span>
+      </a>
+      <nav class="landing-menu">
+        <a href="#platform">Платформа</a>
+        <a href="#flow">Как это работает</a>
+        <a href="#auth">Вход</a>
+      </nav>
     </div>
+  </header>
 
-    <div class="auth-card">
-      <h2>Регистрация</h2>
-      <div class="grid2">
-        <div>
-          <label>Логин</label>
-          <input id="regUsername" placeholder="Новый логин">
+  <main class="landing-shell">
+    <section class="landing-hero">
+      <div class="landing-hero__copy">
+        <div class="eyebrow">Eco Habit Platform</div>
+        <h1>Преврати экологичные привычки в измеримый личный прогресс.</h1>
+        <p class="landing-lead">
+          Green Step помогает командам и пользователям запускать челленджи, подтверждать действия и видеть реальный эффект от ежедневных решений.
+        </p>
+
+        <div class="landing-hero__actions">
+          <a class="btn landing-btn" href="#auth">Начать сейчас</a>
+          <a class="landing-link" href="#platform">Посмотреть возможности</a>
         </div>
-        <div>
-          <label>Пароль</label>
-          <input id="regPassword" type="password" placeholder="Новый пароль">
-        </div>
-      </div>
-      <div class="grid2">
-        <div>
-          <label>Email</label>
-          <input id="regEmail" placeholder="example@mail.com">
-        </div>
-        <div>
-          <label>Город</label>
-          <input id="regCity" placeholder="Москва">
-        </div>
-      </div>
-      <div class="grid2">
-        <div>
-          <label>Возраст</label>
-          <input id="regAge" placeholder="20">
-        </div>
-        <div>
-          <label>Транспорт</label>
-          <input id="regTransport" placeholder="Метро / автобус">
-        </div>
-      </div>
-      <div class="grid2">
-        <div>
-          <label>Питание</label>
-          <input id="regDiet" placeholder="Смешанное">
-        </div>
-        <div>
-          <label>Цель</label>
-          <input id="regGoal" placeholder="Снизить использование пластика">
+
+        <div class="landing-kpis">
+          <div class="landing-kpi">
+            <strong>Единый кабинет</strong>
+            <span>Профиль, задачи, история и подтверждения в одном интерфейсе.</span>
+          </div>
+          <div class="landing-kpi">
+            <strong>Проверяемый результат</strong>
+            <span>Фотоподтверждения и модерация делают прогресс прозрачным.</span>
+          </div>
+          <div class="landing-kpi">
+            <strong>Мотивация через награды</strong>
+            <span>Челленджи становятся понятной системой вовлечения.</span>
+          </div>
         </div>
       </div>
-      <label>О себе</label>
-      <textarea id="regBio" placeholder="Коротко о себе"></textarea>
-      <label>Сортировка отходов</label>
-      <textarea id="regRecycling" placeholder="Что и как сортируешь"></textarea>
-      <div class="actions">
-        <button class="btn blue" id="registerBtn">Зарегистрироваться</button>
+
+      <div class="landing-showcase">
+        <article class="showcase-card showcase-card-primary">
+          <div class="showcase-card__label">Live dashboard</div>
+          <div class="showcase-card__headline">Экоинициативы, которые выглядят как продукт, а не как таблица.</div>
+          <div class="showcase-metrics">
+            <div>
+              <span>Активные челленджи</span>
+              <strong>24</strong>
+            </div>
+            <div>
+              <span>Подтверждено</span>
+              <strong>1 280</strong>
+            </div>
+            <div>
+              <span>Выплаты</span>
+              <strong>₽ 184k</strong>
+            </div>
+          </div>
+        </article>
+
+        <article class="showcase-card showcase-card-secondary">
+          <div class="showcase-list-item">
+            <span class="showcase-badge">01</span>
+            <div>
+              <strong>Персональные челленджи</strong>
+              <p>Назначай задания конкретным пользователям или группам.</p>
+            </div>
+          </div>
+          <div class="showcase-list-item">
+            <span class="showcase-badge">02</span>
+            <div>
+              <strong>Прозрачная модерация</strong>
+              <p>Решения фиксируются с комментариями и статусами.</p>
+            </div>
+          </div>
+          <div class="showcase-list-item">
+            <span class="showcase-badge">03</span>
+            <div>
+              <strong>Удобная адаптация</strong>
+              <p>Интерфейс одинаково уверенно работает на десктопе и телефоне.</p>
+            </div>
+          </div>
+        </article>
       </div>
-    </div>
-  </div>
-</div>
-<section class="hero-eco">
-  <h2>🌱 Что такое Green Step?</h2>
-  <p>
-    Green Step — это цифровая платформа, которая помогает людям снижать свой экологический след
-    через простые ежедневные действия.
-  </p>
+    </section>
 
-  <div class="features">
-    <div class="feature">
-      <h3>📊 Анализ</h3>
-      <p>Мы показываем, как твои привычки влияют на окружающую среду.</p>
-    </div>
+    <section class="landing-strip" id="platform">
+      <div class="landing-strip__item">
+        <span>Система профилей</span>
+        <strong>Регистрация, роли, история активности</strong>
+      </div>
+      <div class="landing-strip__item">
+        <span>Челленджи</span>
+        <strong>Постановка задач, награды и адресное назначение</strong>
+      </div>
+      <div class="landing-strip__item">
+        <span>Контроль результата</span>
+        <strong>Фотоотчеты, проверка, статусы и выплаты</strong>
+      </div>
+    </section>
 
-    <div class="feature">
-      <h3>🎯 Челленджи</h3>
-      <p>Ты выполняешь задания и формируешь экологичные привычки.</p>
-    </div>
+    <section class="landing-section landing-section-grid" id="flow">
+      <div class="landing-section__intro">
+        <div class="eyebrow">Как это работает</div>
+        <h2>Плавный путь от регистрации до подтвержденного результата.</h2>
+        <p class="sub">
+          Интерфейс построен вокруг понятного сценария: пользователь получает челлендж, выполняет его, отправляет подтверждение, а администратор закрывает цикл модерацией и наградой.
+        </p>
+      </div>
 
-    <div class="feature">
-      <h3>📸 Доказательство</h3>
-      <p>Загружаешь фото и подтверждаешь выполнение.</p>
-    </div>
+      <div class="landing-steps">
+        <article class="landing-step">
+          <span>01</span>
+          <h3>Регистрация и профиль</h3>
+          <p>Пользователь задает город, цель и экологические привычки, чтобы платформа сразу учитывала контекст.</p>
+        </article>
+        <article class="landing-step">
+          <span>02</span>
+          <h3>Персональные задания</h3>
+          <p>Администратор запускает челленджи и при необходимости назначает их конкретным участникам.</p>
+        </article>
+        <article class="landing-step">
+          <span>03</span>
+          <h3>Подтверждение действия</h3>
+          <p>Пользователь прикладывает фото и комментарий, чтобы результат можно было быстро проверить.</p>
+        </article>
+        <article class="landing-step">
+          <span>04</span>
+          <h3>Модерация и выплата</h3>
+          <p>Админ видит очередь заявок, подтверждает выполнение и переводит заявку в оплаченный статус.</p>
+        </article>
+      </div>
+    </section>
 
-    <div class="feature">
-      <h3>💰 Награда</h3>
-      <p>Получаешь бонусы за экологичное поведение.</p>
-    </div>
-  </div>
-</section>
+    <section class="landing-section" id="auth">
+      <div class="landing-section__intro landing-section__intro-wide">
+        <div class="eyebrow">Вход в систему</div>
+        <h2>Вход и регистрация встроены прямо в landing.</h2>
+        <p class="sub">Новая стартовая страница выглядит как полноценный продуктовый сайт, а не просто форма авторизации.</p>
+      </div>
 
-<script src="app.js"></script>
-<script>
-const current = getCurrentUser();
-if (current && getAuthToken()) {
-  location.href = current.role === "admin" ? "admin.html" : "user.html";
-}
+      <div class="landing-auth-grid">
+        <section class="landing-auth-panel">
+          <div class="landing-auth-panel__head">
+            <div class="eyebrow">Login</div>
+            <h3>Войти в Green Step</h3>
+          </div>
+          <label for="loginUsername">Логин</label>
+          <input id="loginUsername" placeholder="Введите логин">
+          <label for="loginPassword">Пароль</label>
+          <input id="loginPassword" type="password" placeholder="Введите пароль">
+          <div class="actions">
+            <button class="btn landing-btn" id="loginBtn">Войти</button>
+          </div>
+          <div class="notice landing-notice">Если аккаунта еще нет, зарегистрируйся в правой колонке и сразу попадешь в личный кабинет.</div>
+        </section>
 
-loginBtn.onclick = async () => {
-  try {
-    const session = await api("/api/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: loginUsername.value.trim(),
-        password: loginPassword.value.trim()
-      })
-    });
-    setSession(session);
-    location.href = session.user.role === "admin" ? "admin.html" : "user.html";
-  } catch (e) {
-    alert(e.message);
-  }
-};
+        <section class="landing-auth-panel landing-auth-panel-accent">
+          <div class="landing-auth-panel__head">
+            <div class="eyebrow">Join</div>
+            <h3>Создать аккаунт</h3>
+          </div>
 
-registerBtn.onclick = async () => {
-  try {
-    const session = await api("/api/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: regUsername.value.trim(),
-        password: regPassword.value.trim(),
-        email: regEmail.value.trim(),
-        city: regCity.value.trim(),
-        age: regAge.value.trim(),
-        goal: regGoal.value.trim(),
-        bio: regBio.value.trim(),
-        transport: regTransport.value.trim(),
-        diet: regDiet.value.trim(),
-        recycling: regRecycling.value.trim()
-      })
-    });
-    setSession(session);
-    location.href = "user.html";
-  } catch (e) {
-    alert(e.message);
-  }
-};
-</script></body></html>
+          <div class="grid2">
+            <div>
+              <label for="regUsername">Логин</label>
+              <input id="regUsername" placeholder="Новый логин">
+            </div>
+            <div>
+              <label for="regPassword">Пароль</label>
+              <input id="regPassword" type="password" placeholder="Не менее 6 символов">
+            </div>
+          </div>
+
+          <div class="grid2">
+            <div>
+              <label for="regEmail">Email</label>
+              <input id="regEmail" placeholder="example@mail.com">
+            </div>
+            <div>
+              <label for="regCity">Город</label>
+              <input id="regCity" placeholder="Москва">
+            </div>
+          </div>
+
+          <div class="grid2">
+            <div>
+              <label for="regAge">Возраст</label>
+              <input id="regAge" placeholder="20">
+            </div>
+            <div>
+              <label for="regTransport">Транспорт</label>
+              <input id="regTransport" placeholder="Метро / велосипед / пешком">
+            </div>
+          </div>
+
+          <div class="grid2">
+            <div>
+              <label for="regDiet">Питание</label>
+              <input id="regDiet" placeholder="Смешанное">
+            </div>
+            <div>
+              <label for="regGoal">Цель</label>
+              <input id="regGoal" placeholder="Снизить использование пластика">
+            </div>
+          </div>
+
+          <label for="regBio">О себе</label>
+          <textarea id="regBio" placeholder="Коротко о себе и своих привычках"></textarea>
+          <label for="regRecycling">Сортировка отходов</label>
+          <textarea id="regRecycling" placeholder="Что и как ты сортируешь"></textarea>
+
+          <div class="actions">
+            <button class="btn blue" id="registerBtn">Зарегистрироваться</button>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    const current = getCurrentUser();
+    if (current && getAuthToken()) {
+      location.href = current.role === "admin" ? "admin.html" : "user.html";
+    }
+
+    loginBtn.onclick = async () => {
+      try {
+        const session = await api("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: loginUsername.value.trim(),
+            password: loginPassword.value.trim()
+          })
+        });
+        setSession(session);
+        location.href = session.user.role === "admin" ? "admin.html" : "user.html";
+      } catch (e) {
+        alert(e.message);
+      }
+    };
+
+    registerBtn.onclick = async () => {
+      try {
+        const session = await api("/api/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: regUsername.value.trim(),
+            password: regPassword.value.trim(),
+            email: regEmail.value.trim(),
+            city: regCity.value.trim(),
+            age: regAge.value.trim(),
+            goal: regGoal.value.trim(),
+            bio: regBio.value.trim(),
+            transport: regTransport.value.trim(),
+            diet: regDiet.value.trim(),
+            recycling: regRecycling.value.trim()
+          })
+        });
+        setSession(session);
+        location.href = "user.html";
+      } catch (e) {
+        alert(e.message);
+      }
+    };
+  </script>
+</body>
+</html>
