@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Green Step - Админ-панель</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="admin-body" onload="bootAdmin()">
+  <header class="admin-shell-header">
+    <div class="admin-shell-header__inner">
+      <div>
+        <div class="eyebrow">Green Step Control Center</div>
+        <h1>Админ-панель</h1>
+        <p class="admin-shell-header__lead">Управляй челленджами, пользователями, модерацией заявок и выплатами из одного рабочего пространства.</p>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" onclick="logout()">Выйти</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="admin-shell">
+    <section class="hero hero-admin">
+      <div class="hero-admin__content">
+        <div>
+          <div class="eyebrow">Операционный обзор</div>
+          <h2>Ежедневная работа команды</h2>
+          <p class="sub">Сначала видно ключевые цифры, затем задачи на модерацию и управление программой. Это упрощает приоритеты и сокращает лишние переходы.</p>
+        </div>
+        <div class="hero-admin__pulse">
+          <span class="hero-admin__pulse-dot"></span>
+          <span>Система активна</span>
+        </div>
+      </div>
+      <div class="stats stats-admin">
+        <article class="stat stat-accent">
+          <div class="label">Пользователи</div>
+          <div class="value" id="usersCount">0</div>
+          <div class="small">Все аккаунты в системе</div>
+        </article>
+        <article class="stat">
+          <div class="label">Челленджи</div>
+          <div class="value" id="challengesCount">0</div>
+          <div class="small">Всего создано программ</div>
+        </article>
+        <article class="stat">
+          <div class="label">Активные</div>
+          <div class="value" id="activeChallengesCount">0</div>
+          <div class="small">Сейчас доступны пользователям</div>
+        </article>
+        <article class="stat">
+          <div class="label">Заявки</div>
+          <div class="value" id="submissionsCount">0</div>
+          <div class="small">Все отправленные подтверждения</div>
+        </article>
+        <article class="stat stat-money">
+          <div class="label">Выплачено</div>
+          <div class="value" id="paidTotal">0 ₽</div>
+          <div class="small">Сумма закрытых выплат</div>
+        </article>
+      </div>
+    </section>
+
+    <div class="admin-grid">
+      <section class="card admin-main-card">
+        <div class="tabs tabs-admin">
+          <button class="tab-btn active" data-tab="challenges">Челленджи</button>
+          <button class="tab-btn" data-tab="users">Пользователи</button>
+          <button class="tab-btn" data-tab="moderation">Модерация</button>
+        </div>
+
+        <div class="tab active" id="challenges">
+          <div class="section-heading">
+            <div>
+              <div class="eyebrow">Конструктор программы</div>
+              <h2>Создать и назначить челлендж</h2>
+            </div>
+            <p class="sub">Новый челлендж можно сразу адресовать конкретным пользователям и вывести в активный пул.</p>
+          </div>
+
+          <div class="admin-form-grid">
+            <div class="field">
+              <label for="newTitle">Название</label>
+              <input id="newTitle" placeholder="Например: Неделя без одноразового пластика">
+            </div>
+            <div class="field">
+              <label for="newReward">Награда</label>
+              <input id="newReward" type="number" value="100" min="0">
+            </div>
+            <div class="field">
+              <label for="newCategory">Категория</label>
+              <input id="newCategory" value="Общее">
+            </div>
+            <div class="field">
+              <label for="newDifficulty">Сложность</label>
+              <input id="newDifficulty" value="Средний">
+            </div>
+            <div class="field">
+              <label for="newActive">Статус</label>
+              <select id="newActive">
+                <option value="1">Активен</option>
+                <option value="0">Черновик</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="newDescription">Описание</label>
+            <textarea id="newDescription" placeholder="Опиши условия выполнения, что нужно приложить и какой результат ожидается."></textarea>
+          </div>
+
+          <section class="selection-panel">
+            <div class="selection-panel__head">
+              <div>
+                <h3>Назначение пользователям</h3>
+                <p class="small">Выбери аудиторию, которой будет доступен этот челлендж.</p>
+              </div>
+            </div>
+            <div id="assignUsersWrap" class="selection-list"></div>
+          </section>
+
+          <div class="actions">
+            <button class="btn" id="createChallengeBtn">Создать челлендж</button>
+          </div>
+
+          <div class="section-divider"></div>
+
+          <div class="section-heading">
+            <div>
+              <div class="eyebrow">Текущая программа</div>
+              <h3>Список челленджей</h3>
+            </div>
+          </div>
+          <div id="challengeList" class="challenge-grid challenge-grid-admin"></div>
+        </div>
+
+        <div class="tab" id="users">
+          <div class="section-heading">
+            <div>
+              <div class="eyebrow">База аккаунтов</div>
+              <h2>Пользователи в системе</h2>
+            </div>
+            <p class="sub">Быстрый обзор профилей помогает точнее назначать челленджи и оценивать контекст участников.</p>
+          </div>
+          <div class="table-wrap table-wrap-admin">
+            <table>
+              <thead>
+                <tr>
+                  <th>Имя</th>
+                  <th>Роль</th>
+                  <th>Email</th>
+                  <th>Город</th>
+                  <th>Цель</th>
+                </tr>
+              </thead>
+              <tbody id="usersBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="tab" id="moderation">
+          <div class="section-heading">
+            <div>
+              <div class="eyebrow">Очередь проверки</div>
+              <h2>Модерация заявок</h2>
+            </div>
+            <p class="sub">Подтверждай или отклоняй заявки с комментариями, чтобы пользователи быстро понимали результат проверки.</p>
+          </div>
+          <div id="pendingList" class="submission-grid submission-grid-admin"></div>
+        </div>
+      </section>
+
+      <aside class="admin-sidebar">
+        <section class="card sidebar-card">
+          <div class="section-heading section-heading-tight">
+            <div>
+              <div class="eyebrow">Финансы</div>
+              <h2>Выплаты</h2>
+            </div>
+          </div>
+          <p class="sub">Отмечай подтвержденные заявки как выплаченные и отслеживай историю закрытий.</p>
+          <div class="actions">
+            <button class="btn blue" id="markPaidBtn">Отметить approved как paid</button>
+          </div>
+          <div id="payoutList" class="list payout-list"></div>
+        </section>
+
+        <section class="card sidebar-card sidebar-card-soft">
+          <div class="eyebrow">Как работать</div>
+          <div class="list compact-list">
+            <div class="list-item">Создай челлендж и укажи, кто должен его увидеть.</div>
+            <div class="list-item">Проверяй очередь модерации и оставляй понятный комментарий.</div>
+            <div class="list-item">После подтверждения заявки переноси ее в статус `paid`, когда выплата завершена.</div>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    let usersCache = [];
+    let challengesCache = [];
+
+    function switchTab(id) {
+      document.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('active', b.dataset.tab === id));
+      document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.id === id));
+    }
+
+    async function guardAdmin() {
+      const user = getCurrentUser();
+      if (!user) return location.href = "index.html";
+      if (user.role !== "admin") return location.href = "user.html";
+    }
+
+    async function loadStats() {
+      const s = await api('/api/admin/stats');
+      usersCount.textContent = s.users;
+      challengesCount.textContent = s.challenges;
+      activeChallengesCount.textContent = s.activeChallenges;
+      submissionsCount.textContent = s.submissions;
+      paidTotal.textContent = money(s.totalPaid);
+    }
+
+    async function loadUsers() {
+      const users = await api('/api/users');
+      usersCache = users.filter((u) => u.role === "user");
+      usersBody.innerHTML = users.length
+        ? users.map((u) => `<tr><td>${esc(u.username)}</td><td>${esc(u.role)}</td><td>${esc(u.email || '')}</td><td>${esc(u.city || '')}</td><td>${esc(u.goal || '')}</td></tr>`).join('')
+        : '<tr><td colspan="5" class="small table-empty">Пользователей пока нет.</td></tr>';
+      renderAssignUsers();
+    }
+
+    function renderAssignUsers(selectedIds = []) {
+      assignUsersWrap.innerHTML = usersCache.length
+        ? usersCache.map((u) => `
+          <label class="selection-chip">
+            <input type="checkbox" class="assign-user" value="${u.id}" ${selectedIds.includes(u.id) ? "checked" : ""}>
+            <span class="selection-chip__main">${esc(u.username)}</span>
+            <span class="selection-chip__meta">${u.city ? esc(u.city) : 'Без города'}</span>
+          </label>
+        `).join('')
+        : '<div class="list-item">Нет пользователей для назначения.</div>';
+    }
+
+    function getSelectedAssignedUserIds(scope = document) {
+      return Array.from(scope.querySelectorAll('.assign-user:checked')).map((x) => x.value);
+    }
+
+    async function loadChallenges() {
+      const list = await api('/api/challenges');
+      challengesCache = list;
+      challengeList.innerHTML = list.length
+        ? list.map((c) => `
+          <article class="challenge challenge-admin-card">
+            <div class="challenge-top">
+              <div>
+                <h3>${esc(c.title)}</h3>
+                <div class="small">${esc(c.description || '')}</div>
+              </div>
+              <div class="tag tag-money">${money(c.reward)}</div>
+            </div>
+            <div class="meta">
+              <span class="tag">${esc(c.category || 'Общее')}</span>
+              <span class="tag">${esc(c.difficulty || 'Средний')}</span>
+              <span class="tag ${c.active ? 'tag-success' : 'tag-muted'}">${c.active ? 'Активен' : 'Отключен'}</span>
+            </div>
+            <div class="list-item challenge-assigned">
+              <strong>Назначен:</strong> ${renderAssignedNames(c.assignedUserIds || [])}
+            </div>
+            <div class="actions">
+              <button class="btn secondary" onclick="toggleChallenge('${c.id}', ${c.active ? 'false' : 'true'})">${c.active ? 'Отключить' : 'Активировать'}</button>
+              <button class="btn secondary" onclick="editAssignments('${c.id}')">Изменить назначения</button>
+              <button class="btn danger" onclick="deleteChallenge('${c.id}')">Удалить</button>
+            </div>
+            <div id="assign_edit_${c.id}" class="assignment-editor" style="display:none">
+              <div class="small assignment-editor__hint">Выбери пользователей для этого челленджа.</div>
+              <div class="selection-list">
+                ${usersCache.map((u) => `
+                  <label class="selection-chip">
+                    <input type="checkbox" class="assign-edit-${c.id}" value="${u.id}" ${(c.assignedUserIds || []).includes(u.id) ? "checked" : ""}>
+                    <span class="selection-chip__main">${esc(u.username)}</span>
+                    <span class="selection-chip__meta">${u.city ? esc(u.city) : 'Без города'}</span>
+                  </label>
+                `).join('')}
+              </div>
+              <div class="actions">
+                <button class="btn blue" onclick="saveAssignments('${c.id}')">Сохранить назначения</button>
+              </div>
+            </div>
+          </article>
+        `).join('')
+        : '<div class="list-item">Челленджей пока нет.</div>';
+    }
+
+    function renderAssignedNames(ids) {
+      const names = usersCache.filter((u) => ids.includes(u.id)).map((u) => u.username);
+      return names.length ? names.map(esc).join(', ') : 'никому';
+    }
+
+    async function createChallenge() {
+      await api('/api/challenges', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newTitle.value.trim(),
+          reward: Number(newReward.value || 100),
+          category: newCategory.value.trim(),
+          difficulty: newDifficulty.value.trim(),
+          description: newDescription.value.trim(),
+          active: newActive.value === '1',
+          assignedUserIds: getSelectedAssignedUserIds()
+        })
+      });
+      newTitle.value = '';
+      newDescription.value = '';
+      renderAssignUsers([]);
+      await refreshAll();
+    }
+
+    window.toggleChallenge = async function(id, active) {
+      await api('/api/challenges/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active })
+      });
+      await refreshAll();
+    };
+
+    window.deleteChallenge = async function(id) {
+      await api('/api/challenges/' + id, { method: 'DELETE' });
+      await refreshAll();
+    };
+
+    window.editAssignments = function(id) {
+      const box = document.getElementById('assign_edit_' + id);
+      box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    };
+
+    window.saveAssignments = async function(id) {
+      const checked = Array.from(document.querySelectorAll('.assign-edit-' + id + ':checked')).map((x) => x.value);
+      await api('/api/challenges/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignedUserIds: checked })
+      });
+      await refreshAll();
+    };
+
+    async function loadModeration() {
+      const items = await api('/api/submissions');
+      const pending = items.filter((x) => x.status === 'pending');
+      pendingList.innerHTML = pending.length
+        ? pending.map((s) => `
+          <article class="submission submission-admin-card">
+            <div class="submission-top">
+              <div>
+                <h3>${esc(s.challengeTitle)}</h3>
+                <div class="small">${esc(s.username)} · ${fmtDate(s.createdAt)}</div>
+              </div>
+              <div class="tag tag-money">${money(s.reward)}</div>
+            </div>
+            <div class="moderation-grid">
+              <div class="moderation-content">
+                <div class="list-item">
+                  <strong>Комментарий пользователя</strong>
+                  <div class="small moderation-copy">${esc(s.comment || 'Без комментария')}</div>
+                </div>
+                <label for="comment_${s.id}">Комментарий администратора</label>
+                <textarea id="comment_${s.id}" placeholder="Объясни решение или дай подсказку пользователю"></textarea>
+                <div class="actions">
+                  <button class="btn" onclick="setSubmissionStatus('${s.id}', 'approved')">Подтвердить</button>
+                  <button class="btn danger" onclick="setSubmissionStatus('${s.id}', 'rejected')">Отклонить</button>
+                </div>
+              </div>
+              <div class="preview-card preview-card-admin">
+                <img src="${API_BASE + s.photoUrl}" alt="Подтверждение выполнения">
+                <div class="cap">${esc(s.username)}</div>
+              </div>
+            </div>
+          </article>
+        `).join('')
+        : '<div class="list-item">Сейчас нет заявок на модерации.</div>';
+    }
+
+    window.setSubmissionStatus = async function(id, status) {
+      const adminComment = document.getElementById('comment_' + id)?.value || '';
+      await api('/api/submissions/' + id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, adminComment })
+      });
+      await refreshAll();
+    };
+
+    async function markPaid() {
+      const items = await api('/api/submissions');
+      for (const item of items.filter((x) => x.status === 'approved')) {
+        await api('/api/submissions/' + item.id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'paid', adminComment: item.adminComment || 'Отмечено как выплачено' })
+        });
+      }
+      await refreshAll();
+    }
+
+    async function loadPayouts() {
+      const items = await api('/api/payouts');
+      payoutList.innerHTML = items.length
+        ? items.map((p) => `<div class="list-item payout-item">${fmtDate(p.createdAt)} · ${esc(p.username)} · <strong>${money(p.amount)}</strong></div>`).join('')
+        : '<div class="list-item">Выплат пока нет.</div>';
+    }
+
+    async function refreshAll() {
+      await Promise.all([loadStats(), loadUsers(), loadChallenges(), loadModeration(), loadPayouts()]);
+    }
+
+    async function bootAdmin() {
+      await guardAdmin();
+      document.querySelectorAll('.tab-btn').forEach((b) => {
+        b.onclick = () => switchTab(b.dataset.tab);
+      });
+      createChallengeBtn.onclick = () => createChallenge().catch((e) => alert(e.message));
+      markPaidBtn.onclick = () => markPaid().catch((e) => alert(e.message));
+      refreshAll().catch((e) => alert(e.message));
+    }
+  </script>
+</body>
+</html>

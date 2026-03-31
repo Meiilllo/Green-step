@@ -1,0 +1,152 @@
+<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Green Step — Вход</title><link rel="stylesheet" href="styles.css"></head><body>
+<header><div class="topbar"><div><h1>Green Step</h1></div></div></header>
+
+<div class="auth-wrap">
+  <div class="hero">
+    <h2>Вход и регистрация</h2>
+  </div>
+
+  <div class="auth-grid">
+    <div class="auth-card">
+      <h2>Войти</h2>
+      <label>Логин</label>
+      <input id="loginUsername" placeholder="Введите логин">
+      <label>Пароль</label>
+      <input id="loginPassword" type="password" placeholder="Введите пароль">
+      <div class="actions">
+        <button class="btn" id="loginBtn">Войти</button>
+      </div>
+      <div class="notice" style="margin-top:14px">Если такого аккаунта нет, появится сообщение «Пользователь не найден».</div>
+    </div>
+
+    <div class="auth-card">
+      <h2>Регистрация</h2>
+      <div class="grid2">
+        <div>
+          <label>Логин</label>
+          <input id="regUsername" placeholder="Новый логин">
+        </div>
+        <div>
+          <label>Пароль</label>
+          <input id="regPassword" type="password" placeholder="Новый пароль">
+        </div>
+      </div>
+      <div class="grid2">
+        <div>
+          <label>Email</label>
+          <input id="regEmail" placeholder="example@mail.com">
+        </div>
+        <div>
+          <label>Город</label>
+          <input id="regCity" placeholder="Москва">
+        </div>
+      </div>
+      <div class="grid2">
+        <div>
+          <label>Возраст</label>
+          <input id="regAge" placeholder="20">
+        </div>
+        <div>
+          <label>Транспорт</label>
+          <input id="regTransport" placeholder="Метро / автобус">
+        </div>
+      </div>
+      <div class="grid2">
+        <div>
+          <label>Питание</label>
+          <input id="regDiet" placeholder="Смешанное">
+        </div>
+        <div>
+          <label>Цель</label>
+          <input id="regGoal" placeholder="Снизить использование пластика">
+        </div>
+      </div>
+      <label>О себе</label>
+      <textarea id="regBio" placeholder="Коротко о себе"></textarea>
+      <label>Сортировка отходов</label>
+      <textarea id="regRecycling" placeholder="Что и как сортируешь"></textarea>
+      <div class="actions">
+        <button class="btn blue" id="registerBtn">Зарегистрироваться</button>
+      </div>
+    </div>
+  </div>
+</div>
+<section class="hero-eco">
+  <h2>🌱 Что такое Green Step?</h2>
+  <p>
+    Green Step — это цифровая платформа, которая помогает людям снижать свой экологический след
+    через простые ежедневные действия.
+  </p>
+
+  <div class="features">
+    <div class="feature">
+      <h3>📊 Анализ</h3>
+      <p>Мы показываем, как твои привычки влияют на окружающую среду.</p>
+    </div>
+
+    <div class="feature">
+      <h3>🎯 Челленджи</h3>
+      <p>Ты выполняешь задания и формируешь экологичные привычки.</p>
+    </div>
+
+    <div class="feature">
+      <h3>📸 Доказательство</h3>
+      <p>Загружаешь фото и подтверждаешь выполнение.</p>
+    </div>
+
+    <div class="feature">
+      <h3>💰 Награда</h3>
+      <p>Получаешь бонусы за экологичное поведение.</p>
+    </div>
+  </div>
+</section>
+
+<script src="app.js"></script>
+<script>
+const current = getCurrentUser();
+if (current) {
+  location.href = current.role === "admin" ? "admin.html" : "user.html";
+}
+
+loginBtn.onclick = async () => {
+  try {
+    const user = await api("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: loginUsername.value.trim(),
+        password: loginPassword.value.trim()
+      })
+    });
+    setCurrentUser(user);
+    location.href = user.role === "admin" ? "admin.html" : "user.html";
+  } catch (e) {
+    alert(e.message);
+  }
+};
+
+registerBtn.onclick = async () => {
+  try {
+    const user = await api("/api/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: regUsername.value.trim(),
+        password: regPassword.value.trim(),
+        email: regEmail.value.trim(),
+        city: regCity.value.trim(),
+        age: regAge.value.trim(),
+        goal: regGoal.value.trim(),
+        bio: regBio.value.trim(),
+        transport: regTransport.value.trim(),
+        diet: regDiet.value.trim(),
+        recycling: regRecycling.value.trim()
+      })
+    });
+    setCurrentUser(user);
+    location.href = "user.html";
+  } catch (e) {
+    alert(e.message);
+  }
+};
+</script></body></html>

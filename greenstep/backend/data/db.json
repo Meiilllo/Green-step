@@ -1,0 +1,73 @@
+{
+  "users": [
+    {
+      "id": "admin_1",
+      "username": "admin",
+      "password": "admin",
+      "role": "admin",
+      "email": "admin@greenstep.local",
+      "city": "Москва",
+      "age": "",
+      "goal": "Управлять платформой",
+      "bio": "Системный администратор",
+      "transport": "",
+      "diet": "",
+      "recycling": "",
+      "createdAt": "2026-03-26T11:49:55.352Z"
+    },
+    {
+      "id": "user_demo_1",
+      "username": "Алина",
+      "password": "123456",
+      "role": "user",
+      "email": "alina@example.com",
+      "city": "Москва",
+      "age": "21",
+      "goal": "Снизить использование пластика",
+      "bio": "Хочу выработать экологичные привычки",
+      "transport": "Метро и пешком",
+      "diet": "Смешанное",
+      "recycling": "Сортирую пластик и бумагу",
+      "createdAt": "2026-03-26T11:49:55.353Z"
+    },
+    {
+      "id": "user_1774525843937_4wak54",
+      "username": "Хан",
+      "password": "123123",
+      "role": "user",
+      "email": "13123123@dsfddf.ru",
+      "city": "Москва",
+      "age": "20",
+      "goal": "123",
+      "bio": "123213",
+      "transport": "автобус",
+      "diet": "смешанное",
+      "recycling": "123123",
+      "createdAt": "2026-03-26T11:50:43.937Z"
+    }
+  ],
+  "challenges": [
+    {
+      "id": "challenge_demo_1",
+      "title": "7 дней без одноразового пластика",
+      "reward": 150,
+      "category": "Потребление",
+      "difficulty": "Средний",
+      "description": "Используй многоразовые альтернативы и загрузи фото результата.",
+      "active": true,
+      "createdAt": "2026-03-26T11:49:55.353Z"
+    },
+    {
+      "id": "challenge_demo_2",
+      "title": "3 поездки без автомобиля",
+      "reward": 200,
+      "category": "Транспорт",
+      "difficulty": "Средний",
+      "description": "Выбирай пешие маршруты, велосипед или общественный транспорт.",
+      "active": true,
+      "createdAt": "2026-03-26T11:49:55.353Z"
+    }
+  ],
+  "submissions": [],
+  "payouts": []
+}
