@@ -1,0 +1,11 @@
+{
+  "name": "greenstep-root",
+  "private": true,
+  "scripts": {
+    "install:backend": "npm --prefix backend install",
+    "start": "npm --prefix backend start"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
