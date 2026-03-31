@@ -30,7 +30,7 @@
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{
-  font-family:Segoe UI, Inter, Helvetica, Arial, sans-serif;
+  font-family:"Aptos", "Segoe UI Variable Text", "Segoe UI", "Trebuchet MS", Helvetica, Arial, sans-serif;
   color:var(--text);
   background:
     radial-gradient(circle at top left, rgba(255,255,255,.95) 0, rgba(255,255,255,0) 24%),
@@ -41,6 +41,14 @@ body{
 a{text-decoration:none;color:inherit}
 h1,h2,h3,p{margin:0}
 button,input,select,textarea{font:inherit}
+
+h1,h2,h3,
+.showcase-card__headline,
+.landing-hero__copy h1,
+.landing-section__intro h2,
+.article-page-meta h1{
+  font-family:"Aptos Display", "Segoe UI Variable Display", "Segoe UI", "Trebuchet MS", Helvetica, Arial, sans-serif;
+}
 
 header{
   background:linear-gradient(135deg, var(--green-strong) 0%, var(--green) 54%, #63b96f 100%);
