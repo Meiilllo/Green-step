@@ -198,6 +198,37 @@
     loadLandingArticles().catch(() => {
       landingArticles.innerHTML = '<div class="list-item">Не удалось загрузить статьи.</div>';
     });
+    async function loadLandingStats() {
+      const stats = await api("/api/public/stats");
+      const metrics = document.querySelector(".showcase-metrics");
+      if (!metrics) return;
+
+      const cards = Array.from(metrics.children);
+      const primaryCard = cards[0];
+      if (!primaryCard) return;
+
+      cards.slice(1).forEach((card) => card.remove());
+
+      const label = primaryCard.querySelector("span");
+      const value = primaryCard.querySelector("strong");
+
+      if (label) label.textContent = "Зарегистрировано в системе";
+      if (value) value.textContent = Number(stats.users || 0).toLocaleString("ru-RU");
+
+      let note = primaryCard.querySelector("small");
+      if (!note) {
+        note = document.createElement("small");
+        primaryCard.appendChild(note);
+      }
+      note.textContent = "актуальное число участников из базы данных";
+    }
+
+    loadLandingStats().catch(() => {
+      const metrics = document.querySelector(".showcase-metrics");
+      if (!metrics) return;
+      const cards = Array.from(metrics.children);
+      cards.slice(1).forEach((card) => card.remove());
+    });
   </script>
 </body>
 </html>

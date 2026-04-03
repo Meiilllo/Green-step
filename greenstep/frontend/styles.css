@@ -1031,7 +1031,7 @@ th{
 
 .showcase-metrics{
   display:grid;
-  grid-template-columns:repeat(3, minmax(0, 1fr));
+  grid-template-columns:minmax(0, 320px);
   gap:12px;
   margin-top:28px;
 }
@@ -1053,6 +1053,14 @@ th{
 .showcase-metrics strong{
   font-size:1.55rem;
   letter-spacing:-.04em;
+}
+
+.showcase-metrics small{
+  display:block;
+  margin-top:10px;
+  font-size:12px;
+  line-height:1.5;
+  color:rgba(246,244,239,.72);
 }
 
 .showcase-card-secondary{

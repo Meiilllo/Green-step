@@ -324,6 +324,15 @@ app.get("/api/articles/:id", asyncHandler(async (req, res) => {
   res.json(normalizeArticle(article));
 }));
 
+app.get("/api/public/stats", asyncHandler(async (_, res) => {
+  const { rows } = await query(
+    "SELECT COUNT(*)::int AS users FROM users WHERE role = 'user'"
+  );
+  res.json({
+    users: rows[0].users
+  });
+}));
+
 app.post("/api/register", checkAuthRateLimit, asyncHandler(async (req, res) => {
   const username = String(req.body.username || "").trim();
   const password = String(req.body.password || "").trim();
