@@ -889,7 +889,52 @@ th{
 }
 
 .landing-btn{
-  min-width:160px;
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  min-width:178px;
+  padding:15px 24px;
+  border:none;
+  border-radius:999px;
+  letter-spacing:-.01em;
+  overflow:hidden;
+  background:linear-gradient(135deg, #175f36 0%, #25894d 52%, #7acb81 100%);
+  box-shadow:0 16px 30px rgba(26, 97, 56, .24);
+  transition:transform .2s ease, box-shadow .2s ease, filter .2s ease;
+}
+
+.landing-btn::before{
+  content:"";
+  position:absolute;
+  inset:1px;
+  border-radius:inherit;
+  background:linear-gradient(180deg, rgba(255,255,255,.2), rgba(255,255,255,0));
+  pointer-events:none;
+}
+
+.landing-btn::after{
+  content:"->";
+  position:relative;
+  font-size:17px;
+  line-height:1;
+  transition:transform .2s ease;
+}
+
+.landing-btn:hover{
+  transform:translateY(-2px);
+  box-shadow:0 20px 34px rgba(26, 97, 56, .3);
+  filter:saturate(1.04);
+}
+
+.landing-btn:hover::after{
+  transform:translateX(3px);
+}
+
+.landing-btn:active{
+  transform:translateY(0);
+  box-shadow:0 12px 22px rgba(26, 97, 56, .22);
 }
 
 .landing-link{
