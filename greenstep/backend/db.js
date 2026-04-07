@@ -285,6 +285,17 @@ const createSchema = async (client) => {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS bot_sessions (
+      id TEXT PRIMARY KEY,
+      telegram_user_id TEXT NOT NULL UNIQUE,
+      state TEXT NOT NULL,
+      payload_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
 };
 
 const insertSeedData = async (client, seed) => {

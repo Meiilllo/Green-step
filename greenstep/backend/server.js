@@ -24,6 +24,22 @@ const BODY_LIMIT = process.env.BODY_LIMIT || "200kb";
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const DEFAULT_ADMIN_PASSWORD = "ls%FE<6p@:>yT[;";
+const TELEGRAM_BOT_TOKEN = String(process.env.TELEGRAM_BOT_TOKEN || "").trim();
+const TELEGRAM_CHANNEL_ID = String(process.env.TELEGRAM_CHANNEL_ID || "").trim();
+const TELEGRAM_WEBHOOK_SECRET = String(process.env.TELEGRAM_WEBHOOK_SECRET || "").trim();
+const SITE_URL = String(process.env.SITE_URL || "").trim().replace(/\/+$/, "");
+const TELEGRAM_ADMIN_IDS = new Set(
+  String(process.env.TELEGRAM_ADMIN_IDS || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+);
+const TELEGRAM_API_BASE = TELEGRAM_BOT_TOKEN ? `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}` : "";
+const TELEGRAM_WEBHOOK_PATH = TELEGRAM_WEBHOOK_SECRET
+  ? `/api/telegram/webhook/${TELEGRAM_WEBHOOK_SECRET}`
+  : "/api/telegram/webhook";
+const TELEGRAM_WEBHOOK_URL = SITE_URL ? `${SITE_URL}${TELEGRAM_WEBHOOK_PATH}` : "";
+const TELEGRAM_ENABLED = Boolean(TELEGRAM_BOT_TOKEN);
 
 const authRateLimit = new Map();
 
@@ -147,6 +163,545 @@ const normalizePayout = (payout) => ({
   amount: Number(payout.amount || 0),
   createdAt: toIsoString(payout.created_at || payout.createdAt)
 });
+
+const BOT_STATE_IDLE = "idle";
+const BOT_STATE_AWAITING_TITLE = "awaiting_title";
+const BOT_STATE_AWAITING_EXCERPT = "awaiting_excerpt";
+const BOT_STATE_AWAITING_CONTENT = "awaiting_content";
+const BOT_STATE_AWAITING_COVER = "awaiting_cover";
+const BOT_STATE_AWAITING_PUBLISH_MODE = "awaiting_publish_mode";
+const BOT_STATE_AWAITING_CONFIRM = "awaiting_confirm";
+const BOT_ACTION_CREATE_DRAFT = "create_draft";
+const BOT_ACTION_CREATE_AND_PUBLISH = "create_and_publish";
+const BOT_POST_MODE_TITLE = "title";
+const BOT_POST_MODE_EXCERPT = "excerpt";
+const BOT_POST_MODE_FULL = "full";
+
+const escapeTelegramHtml = (value) => String(value || "")
+  .replace(/&/g, "&amp;")
+  .replace(/</g, "&lt;")
+  .replace(/>/g, "&gt;");
+
+const getTelegramUserFromUpdate = (update) => (
+  update?.message?.from
+  || update?.callback_query?.from
+  || update?.edited_message?.from
+  || null
+);
+
+const getTelegramChatIdFromUpdate = (update) => (
+  update?.message?.chat?.id
+  || update?.callback_query?.message?.chat?.id
+  || update?.edited_message?.chat?.id
+  || null
+);
+
+const isTelegramAdmin = (user) => {
+  if (!user?.id) return false;
+  return TELEGRAM_ADMIN_IDS.has(String(user.id));
+};
+
+const telegramMenuKeyboard = {
+  keyboard: [
+    [{ text: "Создать статью" }, { text: "Создать и опубликовать" }],
+    [{ text: "Черновики" }, { text: "Помощь" }]
+  ],
+  resize_keyboard: true
+};
+
+const telegramCoverKeyboard = {
+  keyboard: [
+    [{ text: "Пропустить" }],
+    [{ text: "Отмена" }]
+  ],
+  resize_keyboard: true
+};
+
+const telegramPublishModeKeyboard = {
+  keyboard: [
+    [{ text: "Название статьи" }],
+    [{ text: "Краткий текст" }],
+    [{ text: "Полный текст" }],
+    [{ text: "Отмена" }]
+  ],
+  resize_keyboard: true
+};
+
+const telegramDraftConfirmKeyboard = {
+  keyboard: [
+    [{ text: "Сохранить как черновик" }],
+    [{ text: "Отмена" }]
+  ],
+  resize_keyboard: true
+};
+
+const telegramPublishConfirmKeyboard = {
+  keyboard: [
+    [{ text: "Опубликовать" }],
+    [{ text: "Сохранить как черновик" }],
+    [{ text: "Отмена" }]
+  ],
+  resize_keyboard: true
+};
+
+const telegramRequest = async (method, payload = {}) => {
+  if (!TELEGRAM_ENABLED) {
+    throw new Error("Telegram bot is not configured");
+  }
+
+  const response = await fetch(`${TELEGRAM_API_BASE}/${method}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data?.ok === false) {
+    throw new Error(data?.description || `Telegram API request failed: ${method}`);
+  }
+
+  return data;
+};
+
+const sendTelegramMessage = (chatId, text, extra = {}) => telegramRequest("sendMessage", {
+  chat_id: chatId,
+  text,
+  parse_mode: "HTML",
+  ...extra
+});
+
+const getTelegramSession = async (telegramUserId) => {
+  const { rows } = await query(
+    "SELECT * FROM bot_sessions WHERE telegram_user_id = $1 LIMIT 1",
+    [String(telegramUserId)]
+  );
+  return rows[0] || null;
+};
+
+const setTelegramSession = async (telegramUserId, state, payload = {}) => {
+  const now = new Date().toISOString();
+  const { rows } = await query(
+    `INSERT INTO bot_sessions (id, telegram_user_id, state, payload_json, created_at, updated_at)
+    VALUES ($1, $2, $3, $4::jsonb, $5, $5)
+    ON CONFLICT (telegram_user_id)
+    DO UPDATE SET state = EXCLUDED.state, payload_json = EXCLUDED.payload_json, updated_at = EXCLUDED.updated_at
+    RETURNING *`,
+    [makeId("bot_session"), String(telegramUserId), state, JSON.stringify(payload || {}), now]
+  );
+  return rows[0];
+};
+
+const clearTelegramSession = async (telegramUserId) => {
+  await query("DELETE FROM bot_sessions WHERE telegram_user_id = $1", [String(telegramUserId)]);
+};
+
+const articleUrl = (articleId) => SITE_URL ? `${SITE_URL}/article?id=${encodeURIComponent(articleId)}` : "";
+
+const createArticleRecord = async ({
+  title,
+  excerpt,
+  content,
+  coverUrl = "",
+  authorName = "Green Step",
+  readingTime = "5 мин",
+  published = false
+}) => {
+  const now = new Date().toISOString();
+  const { rows } = await query(
+    `INSERT INTO articles (
+      id, title, excerpt, content, cover_url, author_name, reading_time, published, created_at, updated_at, published_at
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+    RETURNING *`,
+    [
+      makeId("article"),
+      title,
+      excerpt,
+      content,
+      coverUrl,
+      authorName,
+      readingTime,
+      published,
+      now,
+      now,
+      published ? now : null
+    ]
+  );
+  return normalizeArticle(rows[0]);
+};
+
+const buildTelegramArticlePreview = (payload) => {
+  const lines = [
+    "<b>Предпросмотр статьи</b>",
+    "",
+    `<b>Название:</b> ${escapeTelegramHtml(payload.title)}`,
+    "",
+    `<b>Краткий текст:</b>\n${escapeTelegramHtml(payload.excerpt)}`,
+    "",
+    `<b>Полный текст:</b>\n${escapeTelegramHtml(payload.content.length > 800 ? `${payload.content.slice(0, 800)}...` : payload.content)}`
+  ];
+
+  if (payload.coverUrl) {
+    lines.push("", "<b>Картинка:</b> добавлена");
+  }
+
+  if (payload.publishMode) {
+    const modeLabel = payload.publishMode === BOT_POST_MODE_TITLE
+      ? "Название статьи"
+      : payload.publishMode === BOT_POST_MODE_EXCERPT
+        ? "Краткий текст"
+        : "Полный текст";
+    lines.push("", `<b>Режим публикации в канал:</b> ${modeLabel}`);
+  }
+
+  return lines.join("\n");
+};
+
+const getTelegramPublishText = (article, publishMode) => {
+  const header = `<b>${escapeTelegramHtml(article.title)}</b>`;
+  const body = publishMode === BOT_POST_MODE_TITLE
+    ? ""
+    : publishMode === BOT_POST_MODE_EXCERPT
+      ? escapeTelegramHtml(article.excerpt || "")
+      : escapeTelegramHtml(article.content || "");
+  const link = articleUrl(article.id);
+
+  return [
+    header,
+    body ? `\n${body}` : "",
+    link ? `\n<a href="${escapeTelegramHtml(link)}">Читать на сайте</a>` : ""
+  ].join("\n").trim();
+};
+
+const publishArticleToTelegramChannel = async (article, publishMode) => {
+  if (!TELEGRAM_CHANNEL_ID) {
+    throw new Error("TELEGRAM_CHANNEL_ID is not configured");
+  }
+
+  const text = getTelegramPublishText(article, publishMode);
+  const replyMarkup = articleUrl(article.id)
+    ? {
+        inline_keyboard: [[{ text: "Открыть статью", url: articleUrl(article.id) }]]
+      }
+    : undefined;
+
+  if (article.coverUrl && SITE_URL) {
+    const photoUrl = `${SITE_URL}${article.coverUrl}`;
+    return telegramRequest("sendPhoto", {
+      chat_id: TELEGRAM_CHANNEL_ID,
+      photo: photoUrl,
+      caption: text.slice(0, 1024),
+      parse_mode: "HTML",
+      reply_markup: replyMarkup
+    });
+  }
+
+  return sendTelegramMessage(TELEGRAM_CHANNEL_ID, text, { reply_markup: replyMarkup });
+};
+
+const downloadTelegramFile = async (fileId) => {
+  const fileMeta = await telegramRequest("getFile", { file_id: fileId });
+  const filePath = fileMeta?.result?.file_path;
+  if (!filePath) {
+    throw new Error("Telegram did not return a file path");
+  }
+
+  const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${filePath}`;
+  const response = await fetch(fileUrl);
+  if (!response.ok) {
+    throw new Error("Failed to download Telegram file");
+  }
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const ext = path.extname(filePath) || ".jpg";
+  const filename = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
+  const targetPath = path.join(uploadsDir, filename);
+  fs.writeFileSync(targetPath, buffer);
+  return `/uploads/${filename}`;
+};
+
+const startTelegramArticleFlow = async (chatId, telegramUserId, action) => {
+  await setTelegramSession(telegramUserId, BOT_STATE_AWAITING_TITLE, { action });
+  await sendTelegramMessage(
+    chatId,
+    "Отправь название статьи.",
+    { reply_markup: { keyboard: [[{ text: "Отмена" }]], resize_keyboard: true } }
+  );
+};
+
+const setupTelegramWebhook = async () => {
+  if (!TELEGRAM_ENABLED) {
+    console.log("Telegram bot is disabled: TELEGRAM_BOT_TOKEN is not set");
+    return;
+  }
+
+  if (!SITE_URL) {
+    console.log("Telegram bot is configured, but webhook setup is skipped because SITE_URL is missing");
+    return;
+  }
+
+  await telegramRequest("setWebhook", {
+    url: TELEGRAM_WEBHOOK_URL,
+    secret_token: TELEGRAM_WEBHOOK_SECRET || undefined,
+    allowed_updates: ["message", "callback_query"]
+  });
+
+  console.log(`Telegram webhook configured at ${TELEGRAM_WEBHOOK_URL}`);
+};
+
+const handleTelegramStart = async (chatId, user) => {
+  const name = escapeTelegramHtml(user?.first_name || user?.username || "админ");
+  await clearTelegramSession(user.id);
+  await sendTelegramMessage(
+    chatId,
+    [
+      `Привет, <b>${name}</b>.`,
+      "",
+      "Бот Green Step подключен.",
+      "На этом этапе уже работают webhook, проверка админов и базовое меню.",
+      "",
+      "Следующим шагом добавим создание статей, загрузку картинок и публикацию в канал."
+    ].join("\n"),
+    { reply_markup: telegramMenuKeyboard }
+  );
+};
+
+const handleTelegramPlaceholderAction = async (chatId, text) => {
+  const safeText = escapeTelegramHtml(text);
+  await sendTelegramMessage(
+    chatId,
+    `Пункт <b>${safeText}</b> уже подключён в меню. На следующем этапе добавлю для него реальный сценарий.`
+  );
+};
+
+const handleTelegramHelp = async (chatId) => {
+  await sendTelegramMessage(
+    chatId,
+    [
+      "<b>Что уже умеет бот</b>",
+      "",
+      "1. Создавать черновики статей.",
+      "2. Создавать статью и публиковать её в канал.",
+      "3. Принимать картинку для статьи.",
+      "4. Публиковать в канал в одном из режимов: название, краткий текст, полный текст."
+    ].join("\n"),
+    { reply_markup: telegramMenuKeyboard }
+  );
+};
+
+const handleTelegramDrafts = async (chatId) => {
+  const { rows } = await query(
+    `SELECT * FROM articles
+    WHERE published = FALSE
+    ORDER BY created_at DESC
+    LIMIT 5`
+  );
+
+  if (!rows.length) {
+    await sendTelegramMessage(chatId, "Черновиков пока нет.", { reply_markup: telegramMenuKeyboard });
+    return;
+  }
+
+  const text = rows.map((row, index) => `${index + 1}. ${escapeTelegramHtml(row.title || "Без названия")}`).join("\n");
+  await sendTelegramMessage(chatId, `<b>Последние черновики</b>\n\n${text}`, { reply_markup: telegramMenuKeyboard });
+};
+
+const handleTelegramCancel = async (chatId, telegramUserId) => {
+  await clearTelegramSession(telegramUserId);
+  await sendTelegramMessage(chatId, "Сценарий отменён.", { reply_markup: telegramMenuKeyboard });
+};
+
+const getTelegramPhotoFileId = (message) => {
+  const photos = Array.isArray(message?.photo) ? message.photo : [];
+  if (!photos.length) return "";
+  return photos[photos.length - 1]?.file_id || "";
+};
+
+const buildTelegramConfirmKeyboard = (action) => (
+  action === BOT_ACTION_CREATE_AND_PUBLISH ? telegramPublishConfirmKeyboard : telegramDraftConfirmKeyboard
+);
+
+const handleTelegramSessionStep = async (chatId, user, session, update) => {
+  const text = String(update?.message?.text || "").trim();
+  const photoFileId = getTelegramPhotoFileId(update?.message);
+  const payload = session.payload_json || {};
+
+  if (text === "Отмена") {
+    await handleTelegramCancel(chatId, user.id);
+    return;
+  }
+
+  if (session.state === BOT_STATE_AWAITING_TITLE) {
+    if (!text) {
+      await sendTelegramMessage(chatId, "Пришли текстом название статьи.");
+      return;
+    }
+    await setTelegramSession(user.id, BOT_STATE_AWAITING_EXCERPT, { ...payload, title: text });
+    await sendTelegramMessage(chatId, "Теперь пришли краткий текст статьи.");
+    return;
+  }
+
+  if (session.state === BOT_STATE_AWAITING_EXCERPT) {
+    if (!text) {
+      await sendTelegramMessage(chatId, "Пришли текстом краткий текст статьи.");
+      return;
+    }
+    await setTelegramSession(user.id, BOT_STATE_AWAITING_CONTENT, { ...payload, excerpt: text });
+    await sendTelegramMessage(chatId, "Теперь пришли полный текст статьи.");
+    return;
+  }
+
+  if (session.state === BOT_STATE_AWAITING_CONTENT) {
+    if (!text) {
+      await sendTelegramMessage(chatId, "Пришли текстом полный текст статьи.");
+      return;
+    }
+    await setTelegramSession(user.id, BOT_STATE_AWAITING_COVER, { ...payload, content: text });
+    await sendTelegramMessage(
+      chatId,
+      "Если хочешь, пришли картинку для статьи. Или нажми «Пропустить».",
+      { reply_markup: telegramCoverKeyboard }
+    );
+    return;
+  }
+
+  if (session.state === BOT_STATE_AWAITING_COVER) {
+    if (text === "Пропустить") {
+      await setTelegramSession(user.id, BOT_STATE_AWAITING_PUBLISH_MODE, { ...payload, coverUrl: "" });
+      await sendTelegramMessage(chatId, "Выбери, какой текст отправлять в канал.", { reply_markup: telegramPublishModeKeyboard });
+      return;
+    }
+
+    if (!photoFileId) {
+      await sendTelegramMessage(chatId, "Жду картинку или кнопку «Пропустить».", { reply_markup: telegramCoverKeyboard });
+      return;
+    }
+
+    const coverUrl = await downloadTelegramFile(photoFileId);
+    await setTelegramSession(user.id, BOT_STATE_AWAITING_PUBLISH_MODE, { ...payload, coverUrl });
+    await sendTelegramMessage(chatId, "Картинка сохранена. Теперь выбери режим публикации.", { reply_markup: telegramPublishModeKeyboard });
+    return;
+  }
+
+  if (session.state === BOT_STATE_AWAITING_PUBLISH_MODE) {
+    let publishMode = "";
+    if (text === "Название статьи") publishMode = BOT_POST_MODE_TITLE;
+    if (text === "Краткий текст") publishMode = BOT_POST_MODE_EXCERPT;
+    if (text === "Полный текст") publishMode = BOT_POST_MODE_FULL;
+
+    if (!publishMode) {
+      await sendTelegramMessage(chatId, "Выбери один из вариантов: название, краткий текст или полный текст.", { reply_markup: telegramPublishModeKeyboard });
+      return;
+    }
+
+    const nextPayload = { ...payload, publishMode };
+    await setTelegramSession(user.id, BOT_STATE_AWAITING_CONFIRM, nextPayload);
+    await sendTelegramMessage(
+      chatId,
+      buildTelegramArticlePreview(nextPayload),
+      { reply_markup: buildTelegramConfirmKeyboard(payload.action) }
+    );
+    return;
+  }
+
+  if (session.state === BOT_STATE_AWAITING_CONFIRM) {
+    if (text !== "Опубликовать" && text !== "Сохранить как черновик") {
+      await sendTelegramMessage(
+        chatId,
+        "Нажми «Опубликовать», «Сохранить как черновик» или «Отмена».",
+        { reply_markup: buildTelegramConfirmKeyboard(payload.action) }
+      );
+      return;
+    }
+
+    const shouldPublish = text === "Опубликовать" && payload.action === BOT_ACTION_CREATE_AND_PUBLISH;
+    const article = await createArticleRecord({
+      title: payload.title,
+      excerpt: payload.excerpt,
+      content: payload.content,
+      coverUrl: payload.coverUrl || "",
+      published: shouldPublish
+    });
+
+    if (shouldPublish) {
+      await publishArticleToTelegramChannel(article, payload.publishMode || BOT_POST_MODE_EXCERPT);
+      await clearTelegramSession(user.id);
+      await sendTelegramMessage(
+        chatId,
+        [
+          "Статья опубликована на сайте и отправлена в канал.",
+          articleUrl(article.id) ? `Ссылка: ${escapeTelegramHtml(articleUrl(article.id))}` : ""
+        ].filter(Boolean).join("\n"),
+        { reply_markup: telegramMenuKeyboard }
+      );
+      return;
+    }
+
+    await clearTelegramSession(user.id);
+    await sendTelegramMessage(
+      chatId,
+      [
+        "Статья сохранена как черновик.",
+        articleUrl(article.id) ? `Ссылка: ${escapeTelegramHtml(articleUrl(article.id))}` : ""
+      ].filter(Boolean).join("\n"),
+      { reply_markup: telegramMenuKeyboard }
+    );
+  }
+};
+
+const handleTelegramUpdate = async (update) => {
+  const user = getTelegramUserFromUpdate(update);
+  const chatId = getTelegramChatIdFromUpdate(update);
+  if (!chatId || !user) return;
+
+  if (!isTelegramAdmin(user)) {
+    await sendTelegramMessage(chatId, "Доступ запрещён. Этот бот доступен только администраторам Green Step.");
+    return;
+  }
+
+  const text = String(update?.message?.text || "").trim();
+  const session = await getTelegramSession(user.id);
+  if (text === "/start") {
+    await handleTelegramStart(chatId, user);
+    return;
+  }
+
+  if (text === "Создать статью") {
+    await startTelegramArticleFlow(chatId, user.id, BOT_ACTION_CREATE_DRAFT);
+    return;
+  }
+
+  if (text === "Создать и опубликовать") {
+    await startTelegramArticleFlow(chatId, user.id, BOT_ACTION_CREATE_AND_PUBLISH);
+    return;
+  }
+
+  if (text === "Черновики") {
+    await handleTelegramDrafts(chatId);
+    return;
+  }
+
+  if (text === "Помощь") {
+    await handleTelegramHelp(chatId);
+    return;
+  }
+
+  if (text === "Отмена") {
+    await handleTelegramCancel(chatId, user.id);
+    return;
+  }
+
+  if (session) {
+    await handleTelegramSessionStep(chatId, user, session, update);
+    return;
+  }
+
+  if (text) {
+    await sendTelegramMessage(
+      chatId,
+      "Команда получена. Пока доступны /start и базовое меню. Дальше подключим сценарии создания статьи и публикации."
+    );
+  }
+};
 
 const storage = multer.diskStorage({
   destination: (_, __, cb) => cb(null, uploadsDir),
@@ -330,6 +885,37 @@ app.get("/api/public/stats", asyncHandler(async (_, res) => {
   );
   res.json({
     users: rows[0].users
+  });
+}));
+
+app.post(TELEGRAM_WEBHOOK_PATH, asyncHandler(async (req, res) => {
+  if (!TELEGRAM_ENABLED) {
+    return res.status(503).json({ error: "Telegram bot is not configured" });
+  }
+
+  if (
+    TELEGRAM_WEBHOOK_SECRET
+    && req.headers["x-telegram-bot-api-secret-token"] !== TELEGRAM_WEBHOOK_SECRET
+  ) {
+    return res.status(403).json({ error: "Invalid Telegram webhook secret" });
+  }
+
+  res.json({ ok: true });
+
+  try {
+    await handleTelegramUpdate(req.body || {});
+  } catch (error) {
+    console.error("Telegram webhook handler failed", error);
+  }
+}));
+
+app.get("/api/telegram/status", asyncHandler(async (_, res) => {
+  res.json({
+    enabled: TELEGRAM_ENABLED,
+    webhookPath: TELEGRAM_WEBHOOK_PATH,
+    webhookConfiguredFromSiteUrl: Boolean(TELEGRAM_WEBHOOK_URL),
+    channelId: TELEGRAM_CHANNEL_ID || "",
+    adminIdsCount: TELEGRAM_ADMIN_IDS.size
   });
 }));
 
@@ -887,6 +1473,12 @@ const startServer = async () => {
   app.listen(PORT, () => {
     console.log(`Green Step backend running on http://localhost:${PORT} (${NODE_ENV})`);
   });
+
+  try {
+    await setupTelegramWebhook();
+  } catch (error) {
+    console.error("Failed to configure Telegram webhook", error);
+  }
 };
 
 startServer().catch((error) => {
