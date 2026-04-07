@@ -353,19 +353,21 @@ const buildTelegramArticlePreview = (payload) => {
 };
 
 const getTelegramPublishText = (article, publishMode) => {
-  const header = `<b>${escapeTelegramHtml(article.title)}</b>`;
+  const intro = "<b>Green Step | Новая статья</b>";
+  const title = `<b>${escapeTelegramHtml(article.title)}</b>`;
   const excerpt = escapeTelegramHtml(article.excerpt || "");
   const content = escapeTelegramHtml(article.content || "");
-  const body = publishMode === BOT_POST_MODE_SHORT
-    ? excerpt
-    : [excerpt, content].filter(Boolean).join("\n\n");
-  const link = articleUrl(article.id);
+  const parts = [intro, "", title];
 
-  return [
-    header,
-    body ? `\n${body}` : "",
-    link ? `\n<a href="${escapeTelegramHtml(link)}">Читать на сайте</a>` : ""
-  ].join("\n").trim();
+  if (excerpt) {
+    parts.push("", "<b>Коротко:</b>", excerpt);
+  }
+
+  if (publishMode === BOT_POST_MODE_FULL && content) {
+    parts.push("", "<b>Подробно:</b>", content);
+  }
+
+  return parts.join("\n").trim();
 };
 
 const publishArticleToTelegramChannel = async (article, publishMode) => {
