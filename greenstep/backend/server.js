@@ -173,8 +173,7 @@ const BOT_STATE_AWAITING_PUBLISH_MODE = "awaiting_publish_mode";
 const BOT_STATE_AWAITING_CONFIRM = "awaiting_confirm";
 const BOT_ACTION_CREATE_DRAFT = "create_draft";
 const BOT_ACTION_CREATE_AND_PUBLISH = "create_and_publish";
-const BOT_POST_MODE_TITLE = "title";
-const BOT_POST_MODE_EXCERPT = "excerpt";
+const BOT_POST_MODE_SHORT = "short";
 const BOT_POST_MODE_FULL = "full";
 
 const escapeTelegramHtml = (value) => String(value || "")
@@ -219,9 +218,8 @@ const telegramCoverKeyboard = {
 
 const telegramPublishModeKeyboard = {
   keyboard: [
-    [{ text: "Название статьи" }],
-    [{ text: "Краткий текст" }],
-    [{ text: "Полный текст" }],
+    [{ text: "Название + краткий текст" }],
+    [{ text: "Название + краткий + полный текст" }],
     [{ text: "Отмена" }]
   ],
   resize_keyboard: true
@@ -345,11 +343,9 @@ const buildTelegramArticlePreview = (payload) => {
   }
 
   if (payload.publishMode) {
-    const modeLabel = payload.publishMode === BOT_POST_MODE_TITLE
-      ? "Название статьи"
-      : payload.publishMode === BOT_POST_MODE_EXCERPT
-        ? "Краткий текст"
-        : "Полный текст";
+    const modeLabel = payload.publishMode === BOT_POST_MODE_SHORT
+      ? "Название + краткий текст"
+      : "Название + краткий + полный текст";
     lines.push("", `<b>Режим публикации в канал:</b> ${modeLabel}`);
   }
 
@@ -358,11 +354,11 @@ const buildTelegramArticlePreview = (payload) => {
 
 const getTelegramPublishText = (article, publishMode) => {
   const header = `<b>${escapeTelegramHtml(article.title)}</b>`;
-  const body = publishMode === BOT_POST_MODE_TITLE
-    ? ""
-    : publishMode === BOT_POST_MODE_EXCERPT
-      ? escapeTelegramHtml(article.excerpt || "")
-      : escapeTelegramHtml(article.content || "");
+  const excerpt = escapeTelegramHtml(article.excerpt || "");
+  const content = escapeTelegramHtml(article.content || "");
+  const body = publishMode === BOT_POST_MODE_SHORT
+    ? excerpt
+    : [excerpt, content].filter(Boolean).join("\n\n");
   const link = articleUrl(article.id);
 
   return [
@@ -584,12 +580,11 @@ const handleTelegramSessionStep = async (chatId, user, session, update) => {
 
   if (session.state === BOT_STATE_AWAITING_PUBLISH_MODE) {
     let publishMode = "";
-    if (text === "Название статьи") publishMode = BOT_POST_MODE_TITLE;
-    if (text === "Краткий текст") publishMode = BOT_POST_MODE_EXCERPT;
-    if (text === "Полный текст") publishMode = BOT_POST_MODE_FULL;
+    if (text === "Название + краткий текст") publishMode = BOT_POST_MODE_SHORT;
+    if (text === "Название + краткий + полный текст") publishMode = BOT_POST_MODE_FULL;
 
     if (!publishMode) {
-      await sendTelegramMessage(chatId, "Выбери один из вариантов: название, краткий текст или полный текст.", { reply_markup: telegramPublishModeKeyboard });
+      await sendTelegramMessage(chatId, "Выбери один из двух вариантов: название + краткий текст или название + краткий + полный текст.", { reply_markup: telegramPublishModeKeyboard });
       return;
     }
 
@@ -623,7 +618,7 @@ const handleTelegramSessionStep = async (chatId, user, session, update) => {
     });
 
     if (shouldPublish) {
-      await publishArticleToTelegramChannel(article, payload.publishMode || BOT_POST_MODE_EXCERPT);
+      await publishArticleToTelegramChannel(article, payload.publishMode || BOT_POST_MODE_SHORT);
       await clearTelegramSession(user.id);
       await sendTelegramMessage(
         chatId,
