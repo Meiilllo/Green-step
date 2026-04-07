@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
@@ -38,7 +38,7 @@
         <div class="stat"><div class="label">Челленджей</div><div class="value" id="challengesCount">0</div><div class="small">Все сценарии</div></div>
         <div class="stat"><div class="label">Активных</div><div class="value" id="activeChallengesCount">0</div><div class="small">Доступны сейчас</div></div>
         <div class="stat"><div class="label">Заявок</div><div class="value" id="submissionsCount">0</div><div class="small">Всего отправлено</div></div>
-        <div class="stat stat-money"><div class="label">Выплачено</div><div class="value" id="paidTotal">0 ₽</div><div class="small">Подтвержденные выплаты</div></div>
+        <div class="stat stat-money"><div class="label">Начислено баллов</div><div class="value" id="paidTotal">0 баллов</div><div class="small">Подтвержденные баллы</div></div>
       </div>
     </section>
 
@@ -128,9 +128,9 @@
 
       <aside>
         <section class="card sidebar-card">
-          <div class="section-heading section-heading-tight"><div><div class="eyebrow">Payouts</div><h2>Выплаты</h2></div></div>
-          <div class="small">Отмечай подтвержденные заявки как выплаченные и держи историю выплат рядом.</div>
-          <div class="actions"><button class="btn blue" id="markPaidBtn">Отметить approved как paid</button></div>
+          <div class="section-heading section-heading-tight"><div><div class="eyebrow">Points</div><h2>Баллы</h2></div></div>
+          <div class="small">Отмечай подтвержденные заявки как заявки с начисленными баллами и держи историю начислений рядом.</div>
+          <div class="actions"><button class="btn blue" id="markPaidBtn">Начислить баллы для approved</button></div>
           <div id="payoutList" class="list compact-list payout-list"></div>
         </section>
         <section class="card sidebar-card sidebar-card-soft">
@@ -164,15 +164,16 @@
     window.saveAssignments=async function(id){const checked=Array.from(document.querySelectorAll('.assign-edit-'+id+':checked')).map((x)=>x.value);await api('/api/challenges/'+id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({assignedUserIds:checked})});await refreshAll();};
     async function loadModeration(){const items=await api('/api/submissions');const pending=items.filter((x)=>x.status==='pending');pendingList.innerHTML=pending.length?pending.map((s)=>`<article class="submission submission-admin-card"><div class="submission-top"><div><h3>${esc(s.challengeTitle)}</h3><div class="small">${esc(s.username)} · ${fmtDate(s.createdAt)}</div></div><div class="tag tag-money">${money(s.reward)}</div></div><div class="moderation-grid"><div class="moderation-content"><div class="list-item"><strong>Комментарий пользователя</strong><div class="small moderation-copy">${esc(s.comment||'—')}</div></div><label for="comment_${s.id}">Комментарий администратора</label><textarea id="comment_${s.id}"></textarea><div class="actions"><button class="btn" onclick="setSubmissionStatus('${s.id}', 'approved')">Подтвердить</button><button class="btn danger" onclick="setSubmissionStatus('${s.id}', 'rejected')">Отклонить</button></div></div><div class="preview-card preview-card-admin"><img src="${API_BASE+s.photoUrl}"><div class="cap">${esc(s.username)}</div></div></div></article>`).join(''):'<div class="list-item">Нет заявок на проверке.</div>';}
     window.setSubmissionStatus=async function(id,status){const adminComment=document.getElementById('comment_'+id)?.value||'';await api('/api/submissions/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status,adminComment})});await refreshAll();};
-    async function markPaid(){const items=await api('/api/submissions');for(const item of items.filter((x)=>x.status==='approved')){await api('/api/submissions/'+item.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paid',adminComment:item.adminComment||'Отмечено как выплачено'})});}await refreshAll();}
-    async function loadPayouts(){const items=await api('/api/payouts');payoutList.innerHTML=items.length?items.map((p)=>`<div class="list-item payout-item"><strong>${money(p.amount)}</strong><div class="small">${esc(p.username)} · ${fmtDate(p.createdAt)}</div></div>`).join(''):'<div class="list-item">Выплат пока нет.</div>';}
+    async function markPaid(){const items=await api('/api/submissions');for(const item of items.filter((x)=>x.status==='approved')){await api('/api/submissions/'+item.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paid',adminComment:item.adminComment||'Баллы начислены'})});}await refreshAll();}
+    async function loadPoints(){const items=await api('/api/payouts');payoutList.innerHTML=items.length?items.map((p)=>`<div class="list-item payout-item"><strong>${money(p.amount)}</strong><div class="small">${esc(p.username)} · ${fmtDate(p.createdAt)}</div></div>`).join(''):'<div class="list-item">Начислений баллов пока нет.</div>';}
     function resetArticleForm(){articleTitle.value='';articleAuthor.value='Команда Green Step';articleReadingTime.value='5 мин';articleExcerpt.value='';articleContent.value='';articlePublished.value='true';articleCover.value='';articleCoverPreview.innerHTML='';}
     async function createArticle(){const form=new FormData();form.append('title',articleTitle.value.trim());form.append('authorName',articleAuthor.value.trim());form.append('readingTime',articleReadingTime.value.trim());form.append('excerpt',articleExcerpt.value.trim());form.append('content',articleContent.value.trim());form.append('published',articlePublished.value);if(articleCover.files[0]) form.append('cover',articleCover.files[0]);const headers={};const token=getAuthToken();if(token) headers.Authorization=`Bearer ${token}`;const res=await fetch(`${API_BASE}/api/admin/articles`,{method:'POST',body:form,headers});const text=await res.text();const data=text?JSON.parse(text):{};if(!res.ok) throw new Error(data.error||'Ошибка публикации статьи');resetArticleForm();await loadArticles();}
     async function loadArticles(){const items=await api('/api/admin/articles');articlesList.innerHTML=items.length?items.map((article)=>`<article class="article-admin-card">${article.coverUrl?`<img class="article-admin-card__image" src="${API_BASE+article.coverUrl}" alt="${esc(article.title)}">`:'<div class="landing-article-card__placeholder">Green Step</div>'}<div class="article-admin-card__body"><div class="meta"><span class="tag ${article.published?'tag-success':'tag-muted'}">${article.published?'Опубликовано':'Черновик'}</span><span class="tag">${esc(article.readingTime||'5 мин')}</span></div><h3>${esc(article.title)}</h3><div class="small">${esc(article.authorName||'Green Step')} · ${fmtDate(article.createdAt)}</div><p class="small">${esc(article.excerpt||'')}</p><div class="actions"><button class="btn secondary" onclick="toggleArticlePublished('${article.id}', ${article.published?'false':'true'})">${article.published?'Снять с публикации':'Опубликовать'}</button><button class="btn danger" onclick="deleteArticle('${article.id}')">Удалить</button></div></div></article>`).join(''):'<div class="list-item">Статей пока нет.</div>';}
     window.toggleArticlePublished=async function(id,published){const form=new FormData();form.append('published',published);const headers={};const token=getAuthToken();if(token) headers.Authorization=`Bearer ${token}`;const res=await fetch(`${API_BASE}/api/admin/articles/${id}`,{method:'PUT',body:form,headers});const text=await res.text();const data=text?JSON.parse(text):{};if(!res.ok) throw new Error(data.error||'Ошибка обновления статьи');await loadArticles();};
     window.deleteArticle=async function(id){await api(`/api/admin/articles/${id}`,{method:'DELETE'});await loadArticles();};
-    async function refreshAll(){await Promise.all([loadStats(),loadUsers(),loadChallenges(),loadModeration(),loadPayouts(),loadArticles()]);}
+    async function refreshAll(){await Promise.all([loadStats(),loadUsers(),loadChallenges(),loadModeration(),loadPoints(),loadArticles()]);}
     async function bootAdmin(){await guardAdmin();document.querySelectorAll('.tab-btn').forEach((b)=>b.onclick=()=>switchTab(b.dataset.tab));createChallengeBtn.onclick=()=>createChallenge().catch((e)=>alert(e.message));markPaidBtn.onclick=()=>markPaid().catch((e)=>alert(e.message));createArticleBtn.onclick=()=>createArticle().catch((e)=>alert(e.message));articleCover.onchange=(e)=>{const file=e.target.files[0];if(!file) return articleCoverPreview.innerHTML='';const reader=new FileReader();reader.onload=()=>{articleCoverPreview.innerHTML=`<div class="preview-card preview-card-admin"><img src="${reader.result}"><div class="cap">${esc(file.name)}</div></div>`;};reader.readAsDataURL(file);};refreshAll().catch((e)=>alert(e.message));}
   </script>
 </body>
 </html>
+

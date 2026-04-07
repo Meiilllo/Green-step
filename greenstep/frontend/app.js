@@ -7,7 +7,7 @@ function esc(s) {
 }
 
 function money(v) {
-  return `${Number(v || 0)} ₽`;
+  return `${Number(v || 0)} баллов`;
 }
 
 function fmtDate(v) {
@@ -19,7 +19,7 @@ function statusClass(s) {
 }
 
 function statusLabel(s) {
-  return s === "approved" ? "Подтверждено" : s === "rejected" ? "Отклонено" : s === "paid" ? "Выплачено" : "На проверке";
+  return s === "approved" ? "Подтверждено" : s === "rejected" ? "Отклонено" : s === "paid" ? "Баллы начислены" : "На проверке";
 }
 
 function getAuthToken() {
