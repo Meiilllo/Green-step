@@ -174,6 +174,19 @@
     async function refreshAll(){await Promise.all([loadStats(),loadUsers(),loadChallenges(),loadModeration(),loadPoints(),loadArticles()]);}
     async function bootAdmin(){await guardAdmin();document.querySelectorAll('.tab-btn').forEach((b)=>b.onclick=()=>switchTab(b.dataset.tab));createChallengeBtn.onclick=()=>createChallenge().catch((e)=>alert(e.message));markPaidBtn.onclick=()=>markPaid().catch((e)=>alert(e.message));createArticleBtn.onclick=()=>createArticle().catch((e)=>alert(e.message));articleCover.onchange=(e)=>{const file=e.target.files[0];if(!file) return articleCoverPreview.innerHTML='';const reader=new FileReader();reader.onload=()=>{articleCoverPreview.innerHTML=`<div class="preview-card preview-card-admin"><img src="${reader.result}"><div class="cap">${esc(file.name)}</div></div>`;};reader.readAsDataURL(file);};refreshAll().catch((e)=>alert(e.message));}
   </script>
+  <!-- Yandex.Metrika counter -->
+  <script type="text/javascript">
+    (function(m,e,t,r,i,k,a){
+        m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+        m[i].l=1*new Date();
+        for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+        k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+    })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=108453902', 'ym');
+
+    ym(108453902, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+  </script>
+  <noscript><div><img src="https://mc.yandex.ru/watch/108453902" style="position:absolute; left:-9999px;" alt=""></div></noscript>
+  <!-- /Yandex.Metrika counter -->
 </body>
 </html>
 
