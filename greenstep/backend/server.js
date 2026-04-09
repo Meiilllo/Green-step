@@ -117,6 +117,7 @@ const normalizeArticle = (article) => ({
   excerpt: article.excerpt || "",
   content: article.content || "",
   coverUrl: article.cover_url || article.coverUrl || "",
+  videoUrl: article.video_url || article.videoUrl || "",
   authorName: article.author_name || article.authorName || "Green Step",
   readingTime: article.reading_time || article.readingTime || "5 мин",
   published: !!article.published,
@@ -169,6 +170,7 @@ const BOT_STATE_AWAITING_TITLE = "awaiting_title";
 const BOT_STATE_AWAITING_EXCERPT = "awaiting_excerpt";
 const BOT_STATE_AWAITING_CONTENT = "awaiting_content";
 const BOT_STATE_AWAITING_COVER = "awaiting_cover";
+const BOT_STATE_AWAITING_VIDEO = "awaiting_video";
 const BOT_STATE_AWAITING_PUBLISH_MODE = "awaiting_publish_mode";
 const BOT_STATE_AWAITING_CONFIRM = "awaiting_confirm";
 const BOT_ACTION_CREATE_DRAFT = "create_draft";
@@ -209,6 +211,14 @@ const telegramMenuKeyboard = {
 };
 
 const telegramCoverKeyboard = {
+  keyboard: [
+    [{ text: "Пропустить" }],
+    [{ text: "Отмена" }]
+  ],
+  resize_keyboard: true
+};
+
+const telegramVideoKeyboard = {
   keyboard: [
     [{ text: "Пропустить" }],
     [{ text: "Отмена" }]
@@ -300,6 +310,7 @@ const createArticleRecord = async ({
   excerpt,
   content,
   coverUrl = "",
+  videoUrl = "",
   authorName = "Green Step",
   readingTime = "5 мин",
   published = false
@@ -307,8 +318,8 @@ const createArticleRecord = async ({
   const now = new Date().toISOString();
   const { rows } = await query(
     `INSERT INTO articles (
-      id, title, excerpt, content, cover_url, author_name, reading_time, published, created_at, updated_at, published_at
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      id, title, excerpt, content, cover_url, video_url, author_name, reading_time, published, created_at, updated_at, published_at
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
     RETURNING *`,
     [
       makeId("article"),
@@ -316,6 +327,7 @@ const createArticleRecord = async ({
       excerpt,
       content,
       coverUrl,
+      videoUrl,
       authorName,
       readingTime,
       published,
@@ -340,6 +352,10 @@ const buildTelegramArticlePreview = (payload) => {
 
   if (payload.coverUrl) {
     lines.push("", "<b>Картинка:</b> добавлена");
+  }
+
+  if (payload.videoUrl) {
+    lines.push("", "<b>Видео:</b> добавлено");
   }
 
   if (payload.publishMode) {
@@ -396,7 +412,7 @@ const publishArticleToTelegramChannel = async (article, publishMode) => {
   return sendTelegramMessage(TELEGRAM_CHANNEL_ID, text, { reply_markup: replyMarkup });
 };
 
-const downloadTelegramFile = async (fileId) => {
+const downloadTelegramFile = async (fileId, fallbackExt = ".jpg") => {
   const fileMeta = await telegramRequest("getFile", { file_id: fileId });
   const filePath = fileMeta?.result?.file_path;
   if (!filePath) {
@@ -410,7 +426,7 @@ const downloadTelegramFile = async (fileId) => {
   }
 
   const buffer = Buffer.from(await response.arrayBuffer());
-  const ext = path.extname(filePath) || ".jpg";
+  const ext = path.extname(filePath) || fallbackExt;
   const filename = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
   const targetPath = path.join(uploadsDir, filename);
   fs.writeFileSync(targetPath, buffer);
@@ -424,6 +440,14 @@ const startTelegramArticleFlow = async (chatId, telegramUserId, action) => {
     "Отправь название статьи.",
     { reply_markup: { keyboard: [[{ text: "Отмена" }]], resize_keyboard: true } }
   );
+};
+
+const getTelegramVideoFileId = (message) => {
+  if (message?.video?.file_id) return message.video.file_id;
+  if (message?.document?.file_id && String(message.document.mime_type || "").startsWith("video/")) {
+    return message.document.file_id;
+  }
+  return "";
 };
 
 const setupTelegramWebhook = async () => {
@@ -521,6 +545,7 @@ const buildTelegramConfirmKeyboard = (action) => (
 const handleTelegramSessionStep = async (chatId, user, session, update) => {
   const text = String(update?.message?.text || "").trim();
   const photoFileId = getTelegramPhotoFileId(update?.message);
+  const videoFileId = getTelegramVideoFileId(update?.message);
   const payload = session.payload_json || {};
 
   if (text === "Отмена") {
@@ -564,8 +589,8 @@ const handleTelegramSessionStep = async (chatId, user, session, update) => {
 
   if (session.state === BOT_STATE_AWAITING_COVER) {
     if (text === "Пропустить") {
-      await setTelegramSession(user.id, BOT_STATE_AWAITING_PUBLISH_MODE, { ...payload, coverUrl: "" });
-      await sendTelegramMessage(chatId, "Выбери, какой текст отправлять в канал.", { reply_markup: telegramPublishModeKeyboard });
+      await setTelegramSession(user.id, BOT_STATE_AWAITING_VIDEO, { ...payload, coverUrl: "" });
+      await sendTelegramMessage(chatId, "Если хочешь, пришли видео для статьи. Или нажми «Пропустить».", { reply_markup: telegramVideoKeyboard });
       return;
     }
 
@@ -574,9 +599,27 @@ const handleTelegramSessionStep = async (chatId, user, session, update) => {
       return;
     }
 
-    const coverUrl = await downloadTelegramFile(photoFileId);
-    await setTelegramSession(user.id, BOT_STATE_AWAITING_PUBLISH_MODE, { ...payload, coverUrl });
-    await sendTelegramMessage(chatId, "Картинка сохранена. Теперь выбери режим публикации.", { reply_markup: telegramPublishModeKeyboard });
+    const coverUrl = await downloadTelegramFile(photoFileId, ".jpg");
+    await setTelegramSession(user.id, BOT_STATE_AWAITING_VIDEO, { ...payload, coverUrl });
+    await sendTelegramMessage(chatId, "Картинка сохранена. Теперь можешь прислать видео или нажать «Пропустить».", { reply_markup: telegramVideoKeyboard });
+    return;
+  }
+
+  if (session.state === BOT_STATE_AWAITING_VIDEO) {
+    if (text === "Пропустить") {
+      await setTelegramSession(user.id, BOT_STATE_AWAITING_PUBLISH_MODE, { ...payload, videoUrl: "" });
+      await sendTelegramMessage(chatId, "Выбери, какой текст отправлять в канал.", { reply_markup: telegramPublishModeKeyboard });
+      return;
+    }
+
+    if (!videoFileId) {
+      await sendTelegramMessage(chatId, "Жду видео или кнопку «Пропустить».", { reply_markup: telegramVideoKeyboard });
+      return;
+    }
+
+    const videoUrl = await downloadTelegramFile(videoFileId, ".mp4");
+    await setTelegramSession(user.id, BOT_STATE_AWAITING_PUBLISH_MODE, { ...payload, videoUrl });
+    await sendTelegramMessage(chatId, "Видео сохранено. Теперь выбери режим публикации.", { reply_markup: telegramPublishModeKeyboard });
     return;
   }
 
@@ -616,6 +659,7 @@ const handleTelegramSessionStep = async (chatId, user, session, update) => {
       excerpt: payload.excerpt,
       content: payload.content,
       coverUrl: payload.coverUrl || "",
+      videoUrl: payload.videoUrl || "",
       published: shouldPublish
     });
 

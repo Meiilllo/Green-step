@@ -69,6 +69,7 @@
             <p class="article-page-excerpt">${esc(article.excerpt || "")}</p>
           </div>
           ${article.coverUrl ? `<img class="article-page-cover" src="${API_BASE + article.coverUrl}" alt="${esc(article.title)}">` : ""}
+          ${article.videoUrl ? `<video class="article-page-cover" src="${API_BASE + article.videoUrl}" controls playsinline preload="metadata"></video>` : ""}
           <div class="article-page-text">
             ${formatArticleContent(article.content)}
           </div>

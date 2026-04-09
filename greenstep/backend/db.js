@@ -71,6 +71,7 @@ const normalizeLegacyData = (legacyData, { hashPassword, defaultAdminPassword })
     excerpt: String(article.excerpt || ""),
     content: String(article.content || ""),
     coverUrl: String(article.coverUrl || ""),
+    videoUrl: String(article.videoUrl || ""),
     authorName: String(article.authorName || "Green Step"),
     readingTime: String(article.readingTime || "5 мин"),
     published: !!article.published,
@@ -250,6 +251,7 @@ const createSchema = async (client) => {
       excerpt TEXT NOT NULL DEFAULT '',
       content TEXT NOT NULL DEFAULT '',
       cover_url TEXT NOT NULL DEFAULT '',
+      video_url TEXT NOT NULL DEFAULT '',
       author_name TEXT NOT NULL DEFAULT 'Green Step',
       reading_time TEXT NOT NULL DEFAULT '5 мин',
       published BOOLEAN NOT NULL DEFAULT FALSE,
@@ -257,6 +259,11 @@ const createSchema = async (client) => {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       published_at TIMESTAMPTZ
     );
+  `);
+
+  await client.query(`
+    ALTER TABLE articles
+    ADD COLUMN IF NOT EXISTS video_url TEXT NOT NULL DEFAULT '';
   `);
 
   await client.query(`
@@ -344,14 +351,15 @@ const insertSeedData = async (client, seed) => {
   for (const article of seed.articles) {
     await client.query(
       `INSERT INTO articles (
-        id, title, excerpt, content, cover_url, author_name, reading_time, published, created_at, updated_at, published_at
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+        id, title, excerpt, content, cover_url, video_url, author_name, reading_time, published, created_at, updated_at, published_at
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
       [
         article.id,
         article.title,
         article.excerpt,
         article.content,
         article.coverUrl,
+        article.videoUrl,
         article.authorName,
         article.readingTime,
         article.published,
